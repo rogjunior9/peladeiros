@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,44 +11,103 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { getPlayerTypeLabel } from "@/lib/utils";
-import { User, Phone, Mail, Shield } from "lucide-react";
+import { User, Phone, Mail, Shield, Bell, Settings as SettingsIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
   const { data: session, update } = useSession();
   const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    name: session?.user?.name || "",
-    phone: session?.user?.phone || "",
+
+  // Profile State
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "",
+    phone: "",
   });
 
-  const handleSave = async () => {
-    setSaving(true);
+  // System Settings State (Admin)
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [systemSettings, setSystemSettings] = useState({
+    whatsappGroupId: "",
+    pixKey: "",
+    enableReminder2Days: true, // Default
+    enableReminder1Day: true,
+    enableFinalList: true,
+    enableDebtors: true
+  });
+
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  useEffect(() => {
+    if (session?.user) {
+      setProfileData({
+        name: session.user.name || "",
+        phone: session.user.phone || "",
+      });
+    }
+
+    if (isAdmin) {
+      fetchSystemSettings();
+    }
+  }, [session, isAdmin]);
+
+  const fetchSystemSettings = async () => {
+    setLoadingSettings(true);
+    try {
+      const res = await fetch("/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        // Merge com defaults para evitar nulls
+        setSystemSettings(prev => ({ ...prev, ...data }));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar configuracoes", error);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
     try {
       const response = await fetch(`/api/users/${session?.user?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(profileData),
       });
 
       if (response.ok) {
-        toast({
-          title: "Perfil atualizado!",
-          variant: "success",
-        });
-        // Update session
+        toast({ title: "Perfil atualizado!", variant: "success" });
         await update();
       } else {
         throw new Error("Erro ao atualizar");
       }
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar perfil",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao atualizar perfil", variant: "destructive" });
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(systemSettings)
+      });
+
+      if (response.ok) {
+        toast({ title: "Configurações salvas!", variant: "success" });
+      } else {
+        throw new Error("Erro ao salvar");
+      }
+    } catch (error) {
+      toast({ title: "Erro", description: "Erro ao salvar configurações", variant: "destructive" });
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -56,8 +115,109 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configuracoes</h1>
-        <p className="text-gray-500">Gerencie suas informacoes pessoais</p>
+        <p className="text-gray-500">Gerencie suas informacoes e preferencias</p>
       </div>
+
+      {/* Admin Settings Section */}
+      {isAdmin && (
+        <Card className="border-blue-200">
+          <CardHeader className="bg-blue-50/50">
+            <div className="flex items-center space-x-2">
+              <SettingsIcon className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-blue-900">Configuracoes do Sistema (Admin)</CardTitle>
+            </div>
+            <CardDescription>
+              Configure as automacoes e dados globais da pelada
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>ID do Grupo WhatsApp</Label>
+                <Input
+                  value={systemSettings.whatsappGroupId || ""}
+                  onChange={(e) => setSystemSettings({ ...systemSettings, whatsappGroupId: e.target.value })}
+                  placeholder="Ex: 12036304... (ID do n8n)"
+                />
+                <p className="text-xs text-gray-500">
+                  ID usado pelo bot para enviar mensagens.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Chave Pix Padrao</Label>
+                <Input
+                  value={systemSettings.pixKey || ""}
+                  onChange={(e) => setSystemSettings({ ...systemSettings, pixKey: e.target.value })}
+                  placeholder="Ex: email@chave.com"
+                />
+                <p className="text-xs text-gray-500">
+                  Aparecera nas mensagens de cobranca e lista.
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            <h3 className="font-medium flex items-center">
+              <Bell className="h-4 w-4 mr-2" />
+              Automacoes de WhatsApp
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Lembrete 2 dias antes</Label>
+                  <p className="text-sm text-gray-500">Enviar 5x ao dia</p>
+                </div>
+                <Switch
+                  checked={systemSettings.enableReminder2Days}
+                  onCheckedChange={(c) => setSystemSettings({ ...systemSettings, enableReminder2Days: c })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Lembrete 1 dia antes</Label>
+                  <p className="text-sm text-gray-500">Enviar a cada 2h ate 15h</p>
+                </div>
+                <Switch
+                  checked={systemSettings.enableReminder1Day}
+                  onCheckedChange={(c) => setSystemSettings({ ...systemSettings, enableReminder1Day: c })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Lista Final (15:30)</Label>
+                  <p className="text-sm text-gray-500">Enviar lista com avulsos 1 dia antes</p>
+                </div>
+                <Switch
+                  checked={systemSettings.enableFinalList}
+                  onCheckedChange={(c) => setSystemSettings({ ...systemSettings, enableFinalList: c })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Cobranca Pós-Jogo</Label>
+                  <p className="text-sm text-gray-500">Enviar lista de inadimplentes as 12h do dia seguinte</p>
+                </div>
+                <Switch
+                  checked={systemSettings.enableDebtors}
+                  onCheckedChange={(c) => setSystemSettings({ ...systemSettings, enableDebtors: c })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleSaveSettings}
+                disabled={savingSettings || loadingSettings}
+              >
+                {savingSettings ? "Salvando..." : "Salvar Configuracoes do Sistema"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Profile Card */}
       <Card>
@@ -99,9 +259,9 @@ export default function SettingsPage() {
                 </Label>
                 <Input
                   id="name"
-                  value={formData.name}
+                  value={profileData.name}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setProfileData({ ...profileData, name: e.target.value })
                   }
                   placeholder="Seu nome"
                 />
@@ -130,9 +290,9 @@ export default function SettingsPage() {
                 </Label>
                 <Input
                   id="phone"
-                  value={formData.phone}
+                  value={profileData.phone}
                   onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
+                    setProfileData({ ...profileData, phone: e.target.value })
                   }
                   placeholder="(11) 99999-9999"
                 />
@@ -140,69 +300,13 @@ export default function SettingsPage() {
 
               <div className="pt-4">
                 <Button
-                  onClick={handleSave}
-                  disabled={saving}
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  {saving ? "Salvando..." : "Salvar Alteracoes"}
+                  {savingProfile ? "Salvando..." : "Salvar Alteracoes"}
                 </Button>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Account Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Informacoes da Conta</CardTitle>
-          <CardDescription>Detalhes sobre sua conta</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <Shield className="h-5 w-5 text-gray-500" />
-                <div>
-                  <p className="font-medium">Tipo de Usuario</p>
-                  <p className="text-sm text-gray-500">
-                    {session?.user?.role === "ADMIN"
-                      ? "Administrador - Acesso total ao sistema"
-                      : "Jogador - Acesso limitado"}
-                  </p>
-                </div>
-              </div>
-              <Badge
-                variant={session?.user?.role === "ADMIN" ? "success" : "outline"}
-              >
-                {session?.user?.role === "ADMIN" ? "Admin" : "Player"}
-              </Badge>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <User className="h-5 w-5 text-gray-500" />
-                <div>
-                  <p className="font-medium">Tipo de Jogador</p>
-                  <p className="text-sm text-gray-500">
-                    {session?.user?.playerType === "MONTHLY"
-                      ? "Mensalista - Paga mensalidade fixa"
-                      : session?.user?.playerType === "GOALKEEPER"
-                      ? "Goleiro - Nao paga"
-                      : "Avulso - Paga por jogo"}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="outline">
-                {getPlayerTypeLabel(session?.user?.playerType || "CASUAL")}
-              </Badge>
-            </div>
-
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">
-                <strong>Dica:</strong> Entre em contato com um administrador para
-                alterar seu tipo de jogador ou solicitar permissoes de admin.
-              </p>
             </div>
           </div>
         </CardContent>

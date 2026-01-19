@@ -260,3 +260,14 @@ model SystemConfig {
 
   @@map("system_config")
 }
+
+model NotificationSettings {
+  id                 String  @id @default(cuid())
+  whatsappGroupId    String?
+  pixKey             String?
+  enableReminder2Days Boolean @default(true)
+  enableReminder1Day  Boolean @default(true)
+  enableFinalList     Boolean @default(true)
+  enableDebtors       Boolean @default(true)
+  updatedAt          DateTime @updatedAt
+}
