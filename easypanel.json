@@ -1,0 +1,54 @@
+{
+  "name": "peladeiros",
+  "services": [
+    {
+      "type": "app",
+      "data": {
+        "projectName": "peladeiros",
+        "serviceName": "app",
+        "source": {
+          "type": "github",
+          "repo": "rogjunior9/peladeiros",
+          "ref": "main",
+          "path": "/"
+        },
+        "build": {
+          "type": "dockerfile",
+          "file": "Dockerfile"
+        },
+        "deploy": {
+          "replicas": 1,
+          "resources": {
+            "cpu": 0.5,
+            "memory": 512
+          }
+        },
+        "domains": [
+          {
+            "host": "peladeiros.rogeriojunior.com.br"
+          }
+        ],
+        "env": [
+          "DATABASE_URL=postgresql://peladeiros:peladeiros123@db:5432/peladeiros",
+          "NEXTAUTH_URL=https://peladeiros.rogeriojunior.com.br",
+          "NEXTAUTH_SECRET=sua-chave-secreta-aqui-mude-isso",
+          "GOOGLE_CLIENT_ID=seu-google-client-id",
+          "GOOGLE_CLIENT_SECRET=seu-google-client-secret",
+          "PAGSEGURO_EMAIL=seu-email-pagseguro",
+          "PAGSEGURO_TOKEN=seu-token-pagseguro",
+          "PAGSEGURO_SANDBOX=false",
+          "PAGSEGURO_NOTIFICATION_URL=https://peladeiros.rogeriojunior.com.br/api/webhooks/pagseguro"
+        ]
+      }
+    },
+    {
+      "type": "postgres",
+      "data": {
+        "projectName": "peladeiros",
+        "serviceName": "db",
+        "image": "postgres:15-alpine",
+        "password": "peladeiros123"
+      }
+    }
+  ]
+}
