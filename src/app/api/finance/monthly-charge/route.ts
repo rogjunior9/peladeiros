@@ -37,6 +37,8 @@ export async function POST(request: Request) {
         }
 
         const monthName = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        const currentRefMonth = new Date().toISOString().slice(0, 7);
+
         const playersPayload = [];
         let successCount = 0;
 
@@ -50,14 +52,32 @@ export async function POST(request: Request) {
 
             const cpf = player.document || settings.defaultCpf;
 
-            if (cpf) {
+            // Verificar Pagamento Existente
+            const existingPayment = await prisma.payment.findFirst({
+                where: {
+                    userId: player.id,
+                    referenceMonth: currentRefMonth
+                }
+            });
+
+            // Se ja esta pago, pular
+            if (existingPayment?.status === "PAID") {
+                continue;
+            }
+
+            if (existingPayment) {
+                // Ja existe pendente, reutilizar dados
+                pixCode = existingPayment.pixCode || "";
+                pixQrCode = existingPayment.pixQrCode || "";
+            } else if (cpf) {
+                // Criar Novo
                 try {
                     // 1. Pix Payment
                     try {
                         const paymentRes = await pagseguro.createPixPayment({
                             amount: settings.monthlyFee,
                             description: `Mensalidade ${monthName}`,
-                            referenceId: `MONTHLY-${new Date().toISOString().slice(0, 7)}-USER-${player.id}`,
+                            referenceId: `MONTHLY-${currentRefMonth}-USER-${player.id}`,
                             customerName: player.name || "Mensalista",
                             customerEmail: player.email || "admin@peladeiros.com",
                             customerDocument: cpf
@@ -69,7 +89,7 @@ export async function POST(request: Request) {
                                 amount: settings.monthlyFee,
                                 method: "PIX",
                                 status: "PENDING",
-                                referenceMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+                                referenceMonth: currentRefMonth,
                                 externalId: paymentRes.id,
                                 externalCode: paymentRes.referenceId,
                                 pixCode: paymentRes.pixCode,
@@ -80,23 +100,27 @@ export async function POST(request: Request) {
                         pixCode = paymentRes.pixCode || "";
                         pixQrCode = paymentRes.pixQrCode || "";
                         successCount++;
-                    } catch (e) { console.error("Erro PagSeguro Pix Mensal", e); }
-
-                    // 2. Credit Link
-                    try {
-                        creditLink = await pagseguro.createPaymentLink({
-                            amount: creditAmount,
-                            description: `Mensalidade ${monthName} (Cartao)`,
-                            referenceId: `MONTHLY-CREDIT-${new Date().toISOString().slice(0, 7)}-USER-${player.id}`,
-                            customerName: player.name || "Mensalista",
-                            customerEmail: player.email || "admin@peladeiros.com",
-                            customerDocument: cpf
-                        }) || "";
-                    } catch (e) { console.error("Erro PagSeguro Link Mensal", e); }
+                    } catch (e) { console.error("Erro PagSeguro Pix Mensal Create", e); }
 
                 } catch (err) {
                     console.error(`Erro geral ${player.name}`, err);
                 }
+            }
+
+            // Gerar Link de Credito (Sempre tentar gerar novo ou reutilizar logica se possivel, mas como nao salvamos URL, geramos novo para garantir funcionamento)
+            // Para evitar spam de orders no pagseguro, idealmente salvariamos.
+            // Mas para MVP, gera-se on demand.
+            if (cpf) {
+                try {
+                    creditLink = await pagseguro.createPaymentLink({
+                        amount: creditAmount,
+                        description: `Mensalidade ${monthName} (Cartao)`,
+                        referenceId: `MONTHLY-CREDIT-${currentRefMonth}-USER-${player.id}-${Date.now()}`, // Unique ID each time
+                        customerName: player.name || "Mensalista",
+                        customerEmail: player.email || "admin@peladeiros.com",
+                        customerDocument: cpf
+                    }) || "";
+                } catch (e) { console.error("Erro PagSeguro Link Mensal", e); }
             }
 
             playersPayload.push({
@@ -109,7 +133,7 @@ export async function POST(request: Request) {
             });
         }
 
-        if (process.env.N8N_WEBHOOK_URL) {
+        if (playersPayload.length > 0 && process.env.N8N_WEBHOOK_URL) {
             const webhookUrl = process.env.N8N_WEBHOOK_URL.replace(/\/webhook\/saldo$/, "") + "/webhook/financial-events";
 
             await fetch(webhookUrl, {
@@ -125,7 +149,7 @@ export async function POST(request: Request) {
             });
         }
 
-        return NextResponse.json({ success: true, count: monthlyPlayers.length, generated: successCount });
+        return NextResponse.json({ success: true, count: monthlyPlayers.length, generated: successCount, messagesSent: playersPayload.length });
 
     } catch (error) {
         console.error(error);

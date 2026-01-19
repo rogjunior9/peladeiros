@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getPlayerTypeLabel } from "@/lib/utils";
 import { User, Phone, Mail, Shield, Bell, Settings as SettingsIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { MonthlyChargeDialog } from "@/components/MonthlyChargeDialog";
 
 export default function SettingsPage() {
   const { data: session, update } = useSession();
@@ -39,7 +40,10 @@ export default function SettingsPage() {
     enableReminder1Day: true,
     enableFinalList: true,
     enableDebtors: true
+    enableDebtors: true
   });
+
+  const [showMonthlyDialog, setShowMonthlyDialog] = useState(false);
 
   const isAdmin = session?.user?.role === "ADMIN";
 
@@ -122,20 +126,8 @@ export default function SettingsPage() {
     }
   };
 
-  const handleMonthlyCharge = async () => {
-    if (!confirm("Deseja enviar cobrança para todos os MENSALISTAS ativos?")) return;
-    try {
-      const res = await fetch("/api/finance/monthly-charge", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        toast({ title: "Sucesso", description: `Cobrança enviada para ${data.count} mensalistas via N8N.`, variant: "success" });
-      } else {
-        toast({ title: "Erro", description: data.error || "Erro ao enviar", variant: "destructive" });
-      }
-    } catch (e) {
-      toast({ title: "Erro", description: "Erro de conexão", variant: "destructive" });
-    }
-  };
+  /* Old handleMonthlyCharge removed in favor of Dialog */
+
 
   return (
     <div className="space-y-6">
@@ -263,8 +255,8 @@ export default function SettingsPage() {
                 <h3 className="font-medium text-yellow-900">Cobrança de Mensalistas</h3>
                 <p className="text-sm text-yellow-700">Enviar lembrete para mensalistas.</p>
               </div>
-              <Button onClick={handleMonthlyCharge} variant="outline" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
-                Gerar
+              <Button onClick={() => setShowMonthlyDialog(true)} variant="outline" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
+                Gerenciar
               </Button>
             </div>
 
@@ -388,6 +380,7 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      <MonthlyChargeDialog open={showMonthlyDialog} onOpenChange={setShowMonthlyDialog} />
     </div>
   );
 }
