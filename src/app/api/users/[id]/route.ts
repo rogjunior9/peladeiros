@@ -22,6 +22,7 @@ export async function GET(
         email: true,
         image: true,
         phone: true,
+        document: true,
         role: true,
         playerType: true,
         isActive: true,
@@ -68,7 +69,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, phone, role, playerType, isActive } = body;
+    const { name, phone, document, role, playerType, isActive } = body;
 
     // Only admin can change role and playerType
     if ((role || playerType !== undefined) && session.user.role !== "ADMIN") {
@@ -87,6 +88,7 @@ export async function PUT(
     if (params.id === session.user.id || session.user.role === "ADMIN") {
       if (name) updateData.name = name;
       if (phone !== undefined) updateData.phone = phone;
+      if (document !== undefined) updateData.document = document;
     }
 
     // Only admin can update these fields

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { pagseguro } from "@/lib/pagseguro";
 
 export async function POST(
   request: NextRequest,
@@ -97,7 +98,7 @@ export async function POST(
         data: { status: targetStatus },
         include: {
           user: {
-            select: { name: true, email: true, playerType: true, phone: true },
+            select: { name: true, email: true, playerType: true, phone: true, document: true },
           },
         },
       });
@@ -112,27 +113,59 @@ export async function POST(
         },
         include: {
           user: {
-            select: { name: true, email: true, playerType: true, phone: true },
+            select: { name: true, email: true, playerType: true, phone: true, document: true },
           },
         },
       });
     }
 
     // Trigger Automação de Cobrança Instantânea (Avulso Confirmado)
-    if (confirmation.status === "CONFIRMED" && (!confirmation.user?.playerType || confirmation.user.playerType === "CASUAL")) {
+    if (confirmation.status === "CONFIRMED" && confirmation.user && (!confirmation.user.playerType || confirmation.user.playerType === "CASUAL")) {
       try {
         const settings = await prisma.notificationSettings.findFirst();
-        // N8N Webhook para Eventos (usando endpoint genérico events ou o base configurado)
-        // Se N8N_WEBHOOK_URL for https://n8n.../webhook/saldo, vamos supor que exista um /webhook/events
-        // Vou tentar usar o URL base + /events se o user tiver configurado.
-        // Mas vou assumir que N8N_WEBHOOK_URL aponta para o webhook de eventos principal se ele seguir o padrao.
-        // O user configurou saldo la. Vou usar uma logica de replace ou append.
 
-        if (settings?.pixKey && process.env.N8N_WEBHOOK_URL) {
-          // Ajusta URL: troca /webhook/saldo ou fim por /webhook/events
-          // Hack simples: Se terminar com /saldo, tira. Se nao, usa.
-          // O user criou workflow com /webhook/events? Vou criar no proximo passo.
-          // Vou chamar /webhook/financial-events
+        if (settings && process.env.N8N_WEBHOOK_URL) {
+
+          let pixData = { pixCode: "", pixQrCode: "" };
+          // Preferencia: CPF do User > CPF Padrão (Admin)
+          const cpf = confirmation.user.document || settings.defaultCpf;
+
+          // Gerar PagSeguro se tiver CPF
+          if (cpf) {
+            try {
+              // Verifica se já não tem pagamento pendente (evitar duplicidade se usuario clicar 2x?)
+              // TODO: Check existing payment
+              const paymentRes = await pagseguro.createPixPayment({
+                amount: game.pricePerPlayer,
+                description: `Pelada ${game.title}`,
+                referenceId: `GAME-${game.id}-USER-${confirmation.userId}-${Date.now()}`,
+                customerName: confirmation.user.name || "Jogador",
+                customerEmail: confirmation.user.email || settings.pixKey || "admin@peladeiros.com",
+                customerDocument: cpf
+              });
+
+              // Helper Date
+              await prisma.payment.create({
+                data: {
+                  userId: confirmation.userId, // userId existe pois checamos confirmation.user
+                  gameId: game.id,
+                  amount: game.pricePerPlayer,
+                  method: "PIX",
+                  status: "PENDING",
+                  externalId: paymentRes.id,
+                  externalCode: paymentRes.referenceId,
+                  pixCode: paymentRes.pixCode,
+                  pixQrCode: paymentRes.pixQrCode
+                }
+              });
+
+              pixData.pixCode = paymentRes.pixCode || "";
+              pixData.pixQrCode = paymentRes.pixQrCode || "";
+
+            } catch (err) {
+              console.error("Erro PagSeguro Create", err);
+            }
+          }
 
           const webhookUrl = process.env.N8N_WEBHOOK_URL.replace(/\/webhook\/saldo$/, "") + "/webhook/financial-events";
 
@@ -152,7 +185,10 @@ export async function POST(
                 startTime: game.startTime,
                 price: game.pricePerPlayer
               },
-              pixKey: settings.pixKey
+              pixKey: settings.pixKey,
+              pixCode: pixData.pixCode,
+              pixQrCode: pixData.pixQrCode,
+              hasPixGenerated: !!pixData.pixCode
             })
           }).catch(err => console.error("Erro webhook N8N", err));
         }

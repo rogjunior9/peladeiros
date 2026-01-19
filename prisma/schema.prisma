@@ -109,6 +109,7 @@ model User {
   emailVerified DateTime?
   image         String?
   phone         String?
+  document      String?   // CPF para PagSeguro
   role          UserRole  @default(PLAYER)
   playerType    PlayerType @default(CASUAL)
   isActive      Boolean   @default(true)
@@ -266,6 +267,7 @@ model NotificationSettings {
   whatsappGroupId    String?
   pixKey             String?
   monthlyFee         Float?   @default(80.0)
+  defaultCpf         String?  // CPF Padrao para Pix sem cadastro
   
   // Toggles de Notificação
   enableReminder2Days Boolean @default(true)

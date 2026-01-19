@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     name: "",
     phone: "",
+    document: "",
   });
 
   // System Settings State (Admin)
@@ -32,6 +33,7 @@ export default function SettingsPage() {
     whatsappGroupId: "",
     pixKey: "",
     monthlyFee: 80.0,
+    defaultCpf: "",
     enableReminder2Days: true, // Default
     enableReminder1Day: true,
     enableFinalList: true,
@@ -41,11 +43,18 @@ export default function SettingsPage() {
   const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
-    if (session?.user) {
-      setProfileData({
-        name: session.user.name || "",
-        phone: session.user.phone || "",
-      });
+    if (session?.user?.id) {
+      // Fetch fresh data
+      fetch(`/api/users/${session.user.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setProfileData({
+            name: data.name || "",
+            phone: data.phone || "",
+            document: data.document || "",
+          });
+        })
+        .catch(console.error);
     }
 
     if (isAdmin) {
@@ -176,6 +185,14 @@ export default function SettingsPage() {
                   type="number"
                   value={systemSettings.monthlyFee || ""}
                   onChange={(e) => setSystemSettings({ ...systemSettings, monthlyFee: parseFloat(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>CPF Padrão (Fallback)</Label>
+                <Input
+                  value={systemSettings.defaultCpf || ""}
+                  onChange={(e) => setSystemSettings({ ...systemSettings, defaultCpf: e.target.value })}
+                  placeholder="CPF para cobranças sem cadastro"
                 />
               </div>
             </div>
@@ -331,6 +348,21 @@ export default function SettingsPage() {
                     setProfileData({ ...profileData, phone: e.target.value })
                   }
                   placeholder="(11) 99999-9999"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="document">
+                  <Shield className="h-4 w-4 inline mr-2" />
+                  CPF
+                </Label>
+                <Input
+                  id="document"
+                  value={profileData.document}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, document: e.target.value })
+                  }
+                  placeholder="000.000.000-00"
                 />
               </div>
 
