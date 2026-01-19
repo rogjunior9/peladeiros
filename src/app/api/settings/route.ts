@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
         whatsappGroupId,
         pixKey,
         monthlyFee,
+        creditCardFee,
         defaultCpf,
         enableReminder2Days,
         enableReminder1Day,
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest) {
     const data = {
         whatsappGroupId,
         pixKey,
-        monthlyFee: monthlyFee ? parseFloat(monthlyFee) : 80.0,
+        monthlyFee: monthlyFee ? parseFloat(monthlyFee) : 60.0,
+        creditCardFee: creditCardFee ? parseFloat(creditCardFee) : 5.0,
         defaultCpf,
         enableReminder2Days,
         enableReminder1Day,

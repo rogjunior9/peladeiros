@@ -266,7 +266,8 @@ model NotificationSettings {
   id                 String  @id @default(cuid())
   whatsappGroupId    String?
   pixKey             String?
-  monthlyFee         Float?   @default(80.0)
+  monthlyFee         Float?   @default(60.0)
+  creditCardFee      Float?   @default(5.0) // Taxa (%) para repassar no credito
   defaultCpf         String?  // CPF Padrao para Pix sem cadastro
   
   // Toggles de Notificação

@@ -41,6 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CpfDialog } from "@/components/CpfDialog";
 
 interface Game {
   id: string;
@@ -75,18 +76,28 @@ interface Game {
 export default function GameDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const { toast } = useToast();
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [showCpfDialog, setShowCpfDialog] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   const isAdmin = session?.user?.role === "ADMIN";
   const gameId = params.id as string;
 
   useEffect(() => {
     fetchGame();
-  }, [gameId]);
+    if (session?.user?.id) fetchUserProfile();
+  }, [gameId, session?.user?.id]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const res = await fetch(`/api/users/${session?.user?.id}`);
+      if (res.ok) setUserProfile(await res.json());
+    } catch (e) { }
+  };
 
   const fetchGame = async () => {
     try {
@@ -104,7 +115,7 @@ export default function GameDetailPage() {
     }
   };
 
-  const handleConfirmation = async (status: string) => {
+  const executeConfirmation = async (status: string) => {
     setConfirming(true);
     try {
       const response = await fetch(`/api/games/${gameId}/confirm`, {
@@ -132,6 +143,31 @@ export default function GameDetailPage() {
     } finally {
       setConfirming(false);
     }
+  };
+
+  const handleConfirmation = async (status: string) => {
+    if (status === "CONFIRMED") {
+      const hasCpf = userProfile?.document || (session?.user as any)?.document;
+      if (!hasCpf) {
+        setShowCpfDialog(true);
+        return;
+      }
+    }
+    await executeConfirmation(status);
+  };
+
+  const handleSaveCpf = async (cpf: string) => {
+    const res = await fetch(`/api/users/${session?.user?.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document: cpf })
+    });
+    if (!res.ok) throw new Error("Erro ao salvar CPF");
+
+    setUserProfile({ ...userProfile, document: cpf });
+    await update({ ...session, user: { ...session?.user, document: cpf } });
+    setShowCpfDialog(false);
+    await executeConfirmation("CONFIRMED");
   };
 
   const handleDelete = async () => {
@@ -576,6 +612,11 @@ export default function GameDetailPage() {
           )}
         </div>
       </div>
+      <CpfDialog
+        open={showCpfDialog}
+        onOpenChange={setShowCpfDialog}
+        onSave={handleSaveCpf}
+      />
     </div>
   );
 }

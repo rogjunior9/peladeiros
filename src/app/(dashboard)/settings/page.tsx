@@ -32,7 +32,8 @@ export default function SettingsPage() {
   const [systemSettings, setSystemSettings] = useState({
     whatsappGroupId: "",
     pixKey: "",
-    monthlyFee: 80.0,
+    monthlyFee: 60.0,
+    creditCardFee: 5.0,
     defaultCpf: "",
     enableReminder2Days: true, // Default
     enableReminder1Day: true,
@@ -185,6 +186,14 @@ export default function SettingsPage() {
                   type="number"
                   value={systemSettings.monthlyFee || ""}
                   onChange={(e) => setSystemSettings({ ...systemSettings, monthlyFee: parseFloat(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Taxa Cartão Crédito (%)</Label>
+                <Input
+                  type="number"
+                  value={systemSettings.creditCardFee || ""}
+                  onChange={(e) => setSystemSettings({ ...systemSettings, creditCardFee: parseFloat(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">

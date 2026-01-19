@@ -126,15 +126,17 @@ export async function POST(
 
         if (settings && process.env.N8N_WEBHOOK_URL) {
 
-          let pixData = { pixCode: "", pixQrCode: "" };
+          let pixData = { pixCode: "", pixQrCode: "", creditLink: "", creditAmount: 0 };
           // Preferencia: CPF do User > CPF Padrão (Admin)
           const cpf = confirmation.user.document || settings.defaultCpf;
+          const creditFee = settings.creditCardFee || 5.0;
+          const creditAmount = game.pricePerPlayer * (1 + (creditFee / 100));
+          pixData.creditAmount = creditAmount;
 
           // Gerar PagSeguro se tiver CPF
           if (cpf) {
             try {
-              // Verifica se já não tem pagamento pendente (evitar duplicidade se usuario clicar 2x?)
-              // TODO: Check existing payment
+              // 1. Pix
               const paymentRes = await pagseguro.createPixPayment({
                 amount: game.pricePerPlayer,
                 description: `Pelada ${game.title}`,
@@ -144,7 +146,6 @@ export async function POST(
                 customerDocument: cpf
               });
 
-              // Helper Date
               await prisma.payment.create({
                 data: {
                   userId: confirmation.userId, // userId existe pois checamos confirmation.user
@@ -161,6 +162,19 @@ export async function POST(
 
               pixData.pixCode = paymentRes.pixCode || "";
               pixData.pixQrCode = paymentRes.pixQrCode || "";
+
+              // 2. Credit Link
+              try {
+                const link = await pagseguro.createPaymentLink({
+                  amount: creditAmount,
+                  description: `Pelada ${game.title} (Credito)`,
+                  referenceId: `CREDIT-${game.id}-USER-${confirmation.userId}-${Date.now()}`,
+                  customerName: confirmation.user.name || "Jogador",
+                  customerEmail: confirmation.user.email || "admin@peladeiros.com",
+                  customerDocument: cpf
+                });
+                if (link) pixData.creditLink = link;
+              } catch (e) { console.error("Erro Link", e); }
 
             } catch (err) {
               console.error("Erro PagSeguro Create", err);
@@ -188,6 +202,8 @@ export async function POST(
               pixKey: settings.pixKey,
               pixCode: pixData.pixCode,
               pixQrCode: pixData.pixQrCode,
+              creditLink: pixData.creditLink,
+              creditAmount: pixData.creditAmount.toFixed(2),
               hasPixGenerated: !!pixData.pixCode
             })
           }).catch(err => console.error("Erro webhook N8N", err));

@@ -180,6 +180,32 @@ export class PagSeguroService {
     return statusMap[pagseguroStatus] || "PENDING";
   }
 
+  async createPaymentLink(params: CreatePixPaymentParams): Promise<string | null> {
+    const payload = {
+      reference_id: params.referenceId,
+      description: params.description,
+      amount: {
+        value: Math.round(params.amount * 100),
+        currency: "BRL",
+      },
+      customer: {
+        name: params.customerName,
+        email: params.customerEmail,
+        tax_id: params.customerDocument.replace(/\D/g, ""),
+      },
+      notification_urls: [process.env.PAGSEGURO_NOTIFICATION_URL],
+    };
+
+    try {
+      const response = await this.makeRequest("/orders", "POST", payload);
+      const payLink = response.links?.find((l: any) => l.rel === "pay" || l.rel === "PAY")?.href;
+      return payLink || null;
+    } catch (e) {
+      console.error("Erro ao gerar link de pagamento", e);
+      return null; // Fail gracefully
+    }
+  }
+
   // Process webhook notification
   async processNotification(notificationCode: string): Promise<{
     orderId: string;

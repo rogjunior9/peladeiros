@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pagseguro } from "@/lib/pagseguro";
 
-export const maxDuration = 60; // Increase timeout (Vercel/Next specific, may not work everywhere)
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
@@ -18,7 +18,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Valor mensal ou Pix nao configurado" }, { status: 400 });
         }
 
-        // Buscar Mensalistas Ativos
         const monthlyPlayers = await prisma.user.findMany({
             where: {
                 playerType: "MONTHLY",
@@ -45,42 +44,58 @@ export async function POST(request: Request) {
         for (const player of monthlyPlayers) {
             let pixCode = "";
             let pixQrCode = "";
+            let creditLink = "";
+            const creditFee = settings.creditCardFee || 5.0;
+            const creditAmount = settings.monthlyFee * (1 + (creditFee / 100));
 
             const cpf = player.document || settings.defaultCpf;
 
             if (cpf) {
                 try {
-                    // TODO: Verificar se ja existe pagamento para este mes para evitar duplicidade
-
-                    const paymentRes = await pagseguro.createPixPayment({
-                        amount: settings.monthlyFee,
-                        description: `Mensalidade ${monthName}`,
-                        referenceId: `MONTHLY-${new Date().toISOString().slice(0, 7)}-USER-${player.id}`,
-                        customerName: player.name || "Mensalista",
-                        customerEmail: player.email || "admin@peladeiros.com",
-                        customerDocument: cpf
-                    });
-
-                    await prisma.payment.create({
-                        data: {
-                            userId: player.id,
+                    // 1. Pix Payment
+                    try {
+                        const paymentRes = await pagseguro.createPixPayment({
                             amount: settings.monthlyFee,
-                            method: "PIX",
-                            status: "PENDING",
-                            referenceMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
-                            externalId: paymentRes.id,
-                            externalCode: paymentRes.referenceId,
-                            pixCode: paymentRes.pixCode,
-                            pixQrCode: paymentRes.pixQrCode
-                        }
-                    });
+                            description: `Mensalidade ${monthName}`,
+                            referenceId: `MONTHLY-${new Date().toISOString().slice(0, 7)}-USER-${player.id}`,
+                            customerName: player.name || "Mensalista",
+                            customerEmail: player.email || "admin@peladeiros.com",
+                            customerDocument: cpf
+                        });
 
-                    pixCode = paymentRes.pixCode || "";
-                    pixQrCode = paymentRes.pixQrCode || "";
-                    successCount++;
+                        await prisma.payment.create({
+                            data: {
+                                userId: player.id,
+                                amount: settings.monthlyFee,
+                                method: "PIX",
+                                status: "PENDING",
+                                referenceMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+                                externalId: paymentRes.id,
+                                externalCode: paymentRes.referenceId,
+                                pixCode: paymentRes.pixCode,
+                                pixQrCode: paymentRes.pixQrCode
+                            }
+                        });
+
+                        pixCode = paymentRes.pixCode || "";
+                        pixQrCode = paymentRes.pixQrCode || "";
+                        successCount++;
+                    } catch (e) { console.error("Erro PagSeguro Pix Mensal", e); }
+
+                    // 2. Credit Link
+                    try {
+                        creditLink = await pagseguro.createPaymentLink({
+                            amount: creditAmount,
+                            description: `Mensalidade ${monthName} (Cartao)`,
+                            referenceId: `MONTHLY-CREDIT-${new Date().toISOString().slice(0, 7)}-USER-${player.id}`,
+                            customerName: player.name || "Mensalista",
+                            customerEmail: player.email || "admin@peladeiros.com",
+                            customerDocument: cpf
+                        }) || "";
+                    } catch (e) { console.error("Erro PagSeguro Link Mensal", e); }
 
                 } catch (err) {
-                    console.error(`Erro ao gerar pix para ${player.name}`, err);
+                    console.error(`Erro geral ${player.name}`, err);
                 }
             }
 
@@ -88,14 +103,15 @@ export async function POST(request: Request) {
                 name: player.name,
                 phone: player.phone,
                 pixCode,
-                pixQrCode
+                pixQrCode,
+                creditLink,
+                creditAmount: creditAmount.toFixed(2)
             });
         }
 
         if (process.env.N8N_WEBHOOK_URL) {
             const webhookUrl = process.env.N8N_WEBHOOK_URL.replace(/\/webhook\/saldo$/, "") + "/webhook/financial-events";
 
-            // Dispara evento para o N8N processar o envio em massa
             await fetch(webhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
