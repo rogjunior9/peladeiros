@@ -40,7 +40,6 @@ export default function SettingsPage() {
     enableReminder1Day: true,
     enableFinalList: true,
     enableDebtors: true
-    enableDebtors: true
   });
 
   const [showMonthlyDialog, setShowMonthlyDialog] = useState(false);
