@@ -1,0 +1,243 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  PLAYER
+}
+
+enum PlayerType {
+  MONTHLY      // Mensalista
+  CASUAL       // Avulso
+  GOALKEEPER   // Goleiro (não paga)
+}
+
+enum GameType {
+  SYNTHETIC_GRASS  // Grama sintética
+  FUTSAL           // Futsal
+  FOOTBALL         // Futebol campo
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  CASH
+}
+
+enum TransactionType {
+  INCOME    // Entrada
+  EXPENSE   // Saída
+}
+
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Main Models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  role          UserRole  @default(PLAYER)
+  playerType    PlayerType @default(CASUAL)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  confirmations GameConfirmation[]
+  payments      Payment[]
+  createdGames  Game[]     @relation("GameCreator")
+  createdVenues Venue[]    @relation("VenueCreator")
+  transactions  Transaction[] @relation("TransactionCreator")
+
+  @@map("users")
+}
+
+model Venue {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  state       String
+  zipCode     String?
+  phone       String?
+  pricePerHour Float?
+  gameType    GameType
+  capacity    Int      @default(22)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  createdBy   User     @relation("VenueCreator", fields: [createdById], references: [id])
+  games       Game[]
+
+  @@map("venues")
+}
+
+model Game {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  date          DateTime
+  startTime     String   // HH:mm format
+  endTime       String   // HH:mm format
+  gameType      GameType
+  maxPlayers    Int      @default(22)
+  pricePerPlayer Float
+  priceGoalkeeper Float  @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  venueId       String
+  createdById   String
+
+  venue         Venue    @relation(fields: [venueId], references: [id])
+  createdBy     User     @relation("GameCreator", fields: [createdById], references: [id])
+  confirmations GameConfirmation[]
+  payments      Payment[]
+
+  @@map("games")
+}
+
+model GameConfirmation {
+  id        String             @id @default(cuid())
+  status    ConfirmationStatus @default(PENDING)
+  isGuest   Boolean            @default(false) // Para convidados não cadastrados
+  guestName String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  gameId    String
+  userId    String?
+
+  game      Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user      User?  @relation(fields: [userId], references: [id])
+
+  @@unique([gameId, userId])
+  @@map("game_confirmations")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  amount          Float
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  referenceMonth  String?       // YYYY-MM for monthly payments
+  externalId      String?       // PagSeguro transaction ID
+  externalCode    String?       // PagSeguro reference code
+  pixCode         String?       // PIX copy-paste code
+  pixQrCode       String?       // PIX QR Code base64
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  userId          String
+  gameId          String?
+
+  user            User    @relation(fields: [userId], references: [id])
+  game            Game?   @relation(fields: [gameId], references: [id])
+
+  @@map("payments")
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Float
+  description String
+  category    String?
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdById String
+  createdBy   User            @relation("TransactionCreator", fields: [createdById], references: [id])
+
+  @@map("transactions")
+}
+
+model MonthlyFee {
+  id          String   @id @default(cuid())
+  amount      Float
+  description String?
+  month       String   // YYYY-MM
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([month])
+  @@map("monthly_fees")
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
