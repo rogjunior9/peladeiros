@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       pricePerPlayer,
       priceGoalkeeper,
       venueId,
+      billingType,
     } = body;
 
     const game = await prisma.game.create({
@@ -82,9 +83,10 @@ export async function POST(request: NextRequest) {
         startTime,
         endTime,
         gameType,
-        maxPlayers: maxPlayers || 22,
-        pricePerPlayer: parseFloat(pricePerPlayer),
-        priceGoalkeeper: parseFloat(priceGoalkeeper) || 0,
+        maxPlayers: maxPlayers ? parseInt(String(maxPlayers)) : 22,
+        pricePerPlayer: pricePerPlayer ? parseFloat(String(pricePerPlayer)) : 0,
+        priceGoalkeeper: priceGoalkeeper ? parseFloat(String(priceGoalkeeper)) : 0,
+        billingType: billingType || "SINGLE",
         venueId,
         createdById: session.user.id,
       },

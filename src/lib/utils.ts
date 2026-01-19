@@ -87,6 +87,7 @@ export function getConfirmationStatusLabel(status: string): string {
     PENDING: "Pendente",
     CONFIRMED: "Confirmado",
     DECLINED: "Recusado",
+    WAITING_LIST: "Lista de Espera",
   };
   return labels[status] || status;
 }

@@ -43,6 +43,7 @@ export default function NewGamePage() {
     maxPlayers: "22",
     pricePerPlayer: "",
     priceGoalkeeper: "0",
+    billingType: "SINGLE",
     venueId: "",
   });
 
@@ -257,6 +258,23 @@ export default function NewGamePage() {
                   onChange={(e) => handleChange("priceGoalkeeper", e.target.value)}
                   placeholder="0.00"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="billingType">Tipo de Faturamento *</Label>
+                <Select
+                  value={formData.billingType}
+                  onValueChange={(value) => handleChange("billingType", value)}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o faturamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINGLE">Avulso</SelectItem>
+                    <SelectItem value="MONTHLY">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

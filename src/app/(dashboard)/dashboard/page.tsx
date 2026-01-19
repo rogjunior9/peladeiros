@@ -67,6 +67,57 @@ export default function DashboardPage() {
         <p className="text-gray-500">Visao geral da sua pelada</p>
       </div>
 
+      {/* Next Game Shortcut */}
+      {data?.upcomingGames && data.upcomingGames.length > 0 && (
+        (() => {
+          const nextGame = data.upcomingGames[0];
+          const diffTime = new Date(nextGame.date).getTime() - new Date().getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays <= 3 && diffTime > -1000 * 60 * 60 * 4) { // Show if within 3 days and not more than 4 hours past
+            return (
+              <Card className="bg-green-50 border-green-200 shadow-sm">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center text-green-800 text-lg">
+                        <Calendar className="mr-2 h-5 w-5" />
+                        Proxima Pelada Chegando!
+                      </CardTitle>
+                      <CardDescription className="text-green-700 font-medium mt-1">
+                        {nextGame.title} - {diffDays <= 0 ? "Hoje!" : diffDays === 1 ? "Amanha" : `Em ${diffDays} dias`}
+                      </CardDescription>
+                    </div>
+                    <Badge className="bg-green-200 text-green-800 hover:bg-green-300 border-green-300">
+                      {nextGame.startTime}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="space-y-1">
+                      <p className="text-sm text-green-800 flex items-center">
+                        <span className="font-bold mr-1">Local:</span> {nextGame.venue?.name}
+                      </p>
+                      <p className="text-sm text-green-800">
+                        <span className="font-bold mr-1">Vagas:</span> {nextGame._count?.confirmations || 0} / {nextGame.maxPlayers}
+                      </p>
+                    </div>
+                    <Link href={`/games/${nextGame.id}`}>
+                      <Button className="bg-green-600 hover:bg-green-700 shadow-md">
+                        Confirmar Presenca
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

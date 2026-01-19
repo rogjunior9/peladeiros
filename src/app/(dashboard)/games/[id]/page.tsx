@@ -57,6 +57,7 @@ interface Game {
     name: string;
     address: string;
     city: string;
+    pricePerHour?: number;
   };
   confirmations: Array<{
     id: string;
@@ -180,6 +181,9 @@ export default function GameDetailPage() {
   const pendingPlayers = game.confirmations.filter(
     (c) => c.status === "PENDING"
   );
+  const waitingPlayers = game.confirmations.filter(
+    (c) => c.status === "WAITING_LIST"
+  );
 
   const isPast = new Date(game.date) < new Date();
   const isFull = confirmedPlayers.length >= game.maxPlayers;
@@ -265,6 +269,16 @@ export default function GameDetailPage() {
                     <p className="text-sm text-gray-500">
                       {game.venue.address}, {game.venue.city}
                     </p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        game.venue.address + ", " + game.venue.city
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1 block"
+                    >
+                      Abrir no Maps
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -351,6 +365,46 @@ export default function GameDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Waiting List */}
+          {waitingPlayers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Clock className="h-5 w-5 text-yellow-500 mr-2" />
+                  Lista de Espera ({waitingPlayers.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {waitingPlayers.map((confirmation, index) => (
+                    <div
+                      key={confirmation.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-yellow-50"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-gray-500 w-6">
+                          {index + 1}.
+                        </span>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={confirmation.user?.image} />
+                          <AvatarFallback>
+                            {confirmation.user?.name?.charAt(0) || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{confirmation.user?.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {getPlayerTypeLabel(confirmation.user?.playerType || "CASUAL")}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Declined Players */}
           {declinedPlayers.length > 0 && (
             <Card>
@@ -397,9 +451,12 @@ export default function GameDetailPage() {
                       variant={
                         myConfirmation.status === "CONFIRMED"
                           ? "success"
-                          : myConfirmation.status === "DECLINED"
-                          ? "destructive"
-                          : "warning"
+                          : myConfirmation.status === "WAITING_LIST"
+                            ? "secondary" // ou "warning" mas secondary fica cinza pra espera? Melhor "outline" com cor ou custom style.
+                            // Vou usar warning mesmo mas o texto vai dizer Lista de Espera
+                            : myConfirmation.status === "DECLINED"
+                              ? "destructive"
+                              : "warning"
                       }
                       className="text-lg py-2 px-4"
                     >
@@ -471,6 +528,52 @@ export default function GameDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Financeiro (Admin Only) */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="h-5 w-5 text-green-600 mr-2" />
+                  Saldo da Pelada
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Receita Estimada</span>
+                  <span className="font-medium text-green-600">
+                    {formatCurrency(confirmedPlayers.length * game.pricePerPlayer)}
+                  </span>
+                </div>
+                {game.venue.pricePerHour && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Custo do Campo</span>
+                    <span className="font-medium text-red-600">
+                      - {formatCurrency(
+                        (parseInt(game.endTime.split(':')[0]) - parseInt(game.startTime.split(':')[0])) *
+                        (game.venue.pricePerHour || 0)
+                      )}
+                    </span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex items-center justify-between font-bold">
+                  <span>Resultado</span>
+                  <span className={
+                    (confirmedPlayers.length * game.pricePerPlayer) -
+                      ((parseInt(game.endTime.split(':')[0]) - parseInt(game.startTime.split(':')[0])) * (game.venue.pricePerHour || 0)) >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }>
+                    {formatCurrency(
+                      (confirmedPlayers.length * game.pricePerPlayer) -
+                      ((parseInt(game.endTime.split(':')[0]) - parseInt(game.startTime.split(':')[0])) * (game.venue.pricePerHour || 0))
+                    )}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

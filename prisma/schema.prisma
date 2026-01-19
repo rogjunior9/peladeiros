@@ -51,6 +51,18 @@ enum ConfirmationStatus {
   PENDING
   CONFIRMED
   DECLINED
+  WAITING_LIST
+}
+
+enum BillingType {
+  SINGLE    // Avulso
+  MONTHLY   // Mensal
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // NextAuth Models
@@ -147,6 +159,7 @@ model Game {
   maxPlayers    Int      @default(22)
   pricePerPlayer Float
   priceGoalkeeper Float  @default(0)
+  billingType   BillingType @default(SINGLE) // Novo campo
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -158,6 +171,7 @@ model Game {
   createdBy     User     @relation("GameCreator", fields: [createdById], references: [id])
   confirmations GameConfirmation[]
   payments      Payment[]
+  transactions  Transaction[] // Nova relação com custos do jogo
 
   @@map("games")
 }
@@ -210,12 +224,16 @@ model Transaction {
   amount      Float
   description String
   category    String?
+  status      ApprovalStatus  @default(PENDING) // Novo status
   date        DateTime        @default(now())
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   createdById String
   createdBy   User            @relation("TransactionCreator", fields: [createdById], references: [id])
+  
+  gameId      String?
+  game        Game?           @relation(fields: [gameId], references: [id])
 
   @@map("transactions")
 }

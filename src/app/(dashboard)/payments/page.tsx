@@ -75,11 +75,18 @@ interface User {
   playerType: string;
 }
 
+interface GameSimple {
+  id: string;
+  title: string;
+  date: string;
+}
+
 export default function PaymentsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [games, setGames] = useState<GameSimple[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -87,6 +94,7 @@ export default function PaymentsPage() {
 
   const [formData, setFormData] = useState({
     userId: "",
+    gameId: "none",
     amount: "",
     method: "CASH",
     referenceMonth: getMonthYear(),
@@ -98,7 +106,10 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     fetchPayments();
-    if (isAdmin) fetchUsers();
+    if (isAdmin) {
+      fetchUsers();
+      fetchGames();
+    }
   }, [isAdmin]);
 
   const fetchPayments = async () => {
@@ -127,13 +138,31 @@ export default function PaymentsPage() {
     }
   };
 
+  const fetchGames = async () => {
+    try {
+      const response = await fetch("/api/games?upcoming=true"); // Busca jogos recentes/futuros
+      if (response.ok) {
+        const data = await response.json();
+        setGames(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar jogos:", error);
+    }
+  };
+
   const handleCreatePayment = async () => {
     setSaving(true);
     try {
+      // Prepara o payload, removendo gameId se for "none"
+      const payload = {
+        ...formData,
+        gameId: formData.gameId === "none" ? undefined : formData.gameId,
+      };
+
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -145,6 +174,7 @@ export default function PaymentsPage() {
         setDialogOpen(false);
         setFormData({
           userId: "",
+          gameId: "none",
           amount: "",
           method: "CASH",
           referenceMonth: getMonthYear(),
@@ -276,6 +306,7 @@ export default function PaymentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Valor (R$) *</Label>
@@ -290,16 +321,37 @@ export default function PaymentsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Mes de Referencia</Label>
-                    <Input
-                      type="month"
-                      value={formData.referenceMonth}
-                      onChange={(e) =>
-                        setFormData({ ...formData, referenceMonth: e.target.value })
-                      }
-                    />
+                    <Label>Pelada (Opcional)</Label>
+                    <Select
+                      value={formData.gameId}
+                      onValueChange={(value) => setFormData({ ...formData, gameId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma (Mensal/Outro)</SelectItem>
+                        {games.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>
+                            {formatDate(g.date)} - {g.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Mes de Referencia</Label>
+                  <Input
+                    type="month"
+                    value={formData.referenceMonth}
+                    onChange={(e) =>
+                      setFormData({ ...formData, referenceMonth: e.target.value })
+                    }
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Observacoes</Label>
                   <Input
@@ -438,8 +490,8 @@ export default function PaymentsPage() {
                         payment.status === "CONFIRMED"
                           ? "success"
                           : payment.status === "PENDING"
-                          ? "warning"
-                          : "destructive"
+                            ? "warning"
+                            : "destructive"
                       }
                     >
                       {getPaymentStatusLabel(payment.status)}
