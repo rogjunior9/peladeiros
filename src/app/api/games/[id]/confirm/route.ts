@@ -57,22 +57,14 @@ export async function POST(
       // Combinar Data e Hora para o calculo
       const gameDate = new Date(game.date);
       const [hours, minutes] = game.startTime.split(':').map(Number);
-      gameDate.setUTCHours(hours, minutes, 0, 0); // Assumindo base UTC para simplificar ou ajustar conforme timezone do projeto
-      // Ajuste fino de timezone pode ser necessario dependendo de como foi salvo.
-      // Vamos tentar uma aproximacao: se a data do jogo for hoje/amanha.
+      gameDate.setUTCHours(hours, minutes, 0, 0);
 
       const now = new Date();
-      // O problema eh que game.date normalmente eh salvo como YYYY-MM-DDT00:00:00.000Z.
-      // Se o jogo é dia 20. E sao do Brasil (-3). Date do banco eh dia 20 a meia noite UTC?
-      // Vou usar uma logica defensiva: Se faltar mais de 4 horas considerando a hora atual.
-
       // Criar data do jogo combinada (assumindo que game.date esta correto dia)
       const gameDateTime = new Date(game.date);
       // Ajustar hora
       gameDateTime.setHours(hours, minutes, 0, 0);
 
-      // Se a data calculada ficou no passado (por bug de timezone), ajustar data
-      // Mas o melhor eh calcular diferenca em ms
       const msUntilGame = gameDateTime.getTime() - now.getTime();
       const hoursUntilGame = msUntilGame / (1000 * 60 * 60);
 
@@ -148,7 +140,7 @@ export async function POST(
 
               await prisma.payment.create({
                 data: {
-                  userId: confirmation.userId, // userId existe pois checamos confirmation.user
+                  userId: confirmation.userId!, // userId existe pois checamos confirmation.user
                   gameId: game.id,
                   amount: game.pricePerPlayer,
                   method: "PIX",
