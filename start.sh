@@ -4,7 +4,7 @@ echo "Aguardando banco de dados..."
 sleep 5
 
 echo "Executando migracoes do Prisma..."
-npx prisma db push --accept-data-loss
+npx prisma db push --accept-data-loss || echo "Aviso: Migracao falhou, continuando..."
 
 echo "Iniciando aplicacao..."
-node server.js
+exec node server.js

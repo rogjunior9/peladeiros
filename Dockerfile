@@ -59,6 +59,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
+# Fix line endings and permissions for start.sh
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
+
 # Install prisma CLI for migrations
 RUN npm install -g prisma
 
