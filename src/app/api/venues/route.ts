@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         phone,
         pricePerHour: pricePerHour ? parseFloat(pricePerHour) : null,
         gameType,
-        capacity: capacity || 22,
+        capacity: capacity ? parseInt(String(capacity)) : 22,
         createdById: session.user.id,
       },
     });
