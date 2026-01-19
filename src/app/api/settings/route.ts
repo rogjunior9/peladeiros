@@ -18,38 +18,34 @@ export async function POST(request: NextRequest) {
     const {
         whatsappGroupId,
         pixKey,
+        monthlyFee,
         enableReminder2Days,
         enableReminder1Day,
         enableFinalList,
         enableDebtors
     } = body;
 
-    // Upsert (como só tem 1 linha, findFirst e update ou create)
     const existing = await prisma.notificationSettings.findFirst();
 
     let result;
+    const data = {
+        whatsappGroupId,
+        pixKey,
+        monthlyFee: monthlyFee ? parseFloat(monthlyFee) : 80.0,
+        enableReminder2Days,
+        enableReminder1Day,
+        enableFinalList,
+        enableDebtors
+    };
+
     if (existing) {
         result = await prisma.notificationSettings.update({
             where: { id: existing.id },
-            data: {
-                whatsappGroupId,
-                pixKey,
-                enableReminder2Days,
-                enableReminder1Day,
-                enableFinalList,
-                enableDebtors
-            }
+            data
         });
     } else {
         result = await prisma.notificationSettings.create({
-            data: {
-                whatsappGroupId,
-                pixKey,
-                enableReminder2Days,
-                enableReminder1Day,
-                enableFinalList,
-                enableDebtors
-            }
+            data
         });
     }
 

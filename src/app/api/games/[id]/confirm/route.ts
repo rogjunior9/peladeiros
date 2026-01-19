@@ -97,7 +97,7 @@ export async function POST(
         data: { status: targetStatus },
         include: {
           user: {
-            select: { name: true, email: true, playerType: true },
+            select: { name: true, email: true, playerType: true, phone: true },
           },
         },
       });
@@ -112,10 +112,53 @@ export async function POST(
         },
         include: {
           user: {
-            select: { name: true, email: true, playerType: true },
+            select: { name: true, email: true, playerType: true, phone: true },
           },
         },
       });
+    }
+
+    // Trigger Automação de Cobrança Instantânea (Avulso Confirmado)
+    if (confirmation.status === "CONFIRMED" && (!confirmation.user?.playerType || confirmation.user.playerType === "CASUAL")) {
+      try {
+        const settings = await prisma.notificationSettings.findFirst();
+        // N8N Webhook para Eventos (usando endpoint genérico events ou o base configurado)
+        // Se N8N_WEBHOOK_URL for https://n8n.../webhook/saldo, vamos supor que exista um /webhook/events
+        // Vou tentar usar o URL base + /events se o user tiver configurado.
+        // Mas vou assumir que N8N_WEBHOOK_URL aponta para o webhook de eventos principal se ele seguir o padrao.
+        // O user configurou saldo la. Vou usar uma logica de replace ou append.
+
+        if (settings?.pixKey && process.env.N8N_WEBHOOK_URL) {
+          // Ajusta URL: troca /webhook/saldo ou fim por /webhook/events
+          // Hack simples: Se terminar com /saldo, tira. Se nao, usa.
+          // O user criou workflow com /webhook/events? Vou criar no proximo passo.
+          // Vou chamar /webhook/financial-events
+
+          const webhookUrl = process.env.N8N_WEBHOOK_URL.replace(/\/webhook\/saldo$/, "") + "/webhook/financial-events";
+
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'charge_casual',
+              user: {
+                name: confirmation.user.name,
+                phone: confirmation.user.phone,
+                email: confirmation.user.email
+              },
+              game: {
+                title: game.title,
+                date: game.date,
+                startTime: game.startTime,
+                price: game.pricePerPlayer
+              },
+              pixKey: settings.pixKey
+            })
+          }).catch(err => console.error("Erro webhook N8N", err));
+        }
+      } catch (e) {
+        console.error("Erro ao disparar cobranca", e);
+      }
     }
 
     return NextResponse.json(confirmation);

@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [systemSettings, setSystemSettings] = useState({
     whatsappGroupId: "",
     pixKey: "",
+    monthlyFee: 80.0,
     enableReminder2Days: true, // Default
     enableReminder1Day: true,
     enableFinalList: true,
@@ -111,6 +112,21 @@ export default function SettingsPage() {
     }
   };
 
+  const handleMonthlyCharge = async () => {
+    if (!confirm("Deseja enviar cobrança para todos os MENSALISTAS ativos?")) return;
+    try {
+      const res = await fetch("/api/finance/monthly-charge", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Sucesso", description: `Cobrança enviada para ${data.count} mensalistas via N8N.`, variant: "success" });
+      } else {
+        toast({ title: "Erro", description: data.error || "Erro ao enviar", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "Erro", description: "Erro de conexão", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -153,6 +169,14 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-500">
                   Aparecera nas mensagens de cobranca e lista.
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Valor da Mensalidade (R$)</Label>
+                <Input
+                  type="number"
+                  value={systemSettings.monthlyFee || ""}
+                  onChange={(e) => setSystemSettings({ ...systemSettings, monthlyFee: parseFloat(e.target.value) })}
+                />
               </div>
             </div>
 
@@ -204,6 +228,18 @@ export default function SettingsPage() {
                   onCheckedChange={(c) => setSystemSettings({ ...systemSettings, enableDebtors: c })}
                 />
               </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            <div className="flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <div>
+                <h3 className="font-medium text-yellow-900">Cobrança de Mensalistas</h3>
+                <p className="text-sm text-yellow-700">Enviar lembrete para mensalistas.</p>
+              </div>
+              <Button onClick={handleMonthlyCharge} variant="outline" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
+                Gerar
+              </Button>
             </div>
 
             <div className="flex justify-end pt-4">

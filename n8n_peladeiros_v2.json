@@ -1,6 +1,5 @@
 {
     "name": "Peladeiros Automation Full",
-    "settings": {},
     "nodes": [
         {
             "parameters": {
@@ -106,8 +105,7 @@
                 1100,
                 0
             ],
-            "id": "send-wpp-2days",
-            "notes": "Configure sua URL de API de WhatsApp aqui"
+            "id": "send-wpp-2days"
         },
         {
             "parameters": {
@@ -494,8 +492,7 @@
                 440,
                 1200
             ],
-            "id": "check-command",
-            "notes": "Verifica se a mensagem recebida é /saldo. Ajuste o path do json conforme seu webhook."
+            "id": "check-command"
         },
         {
             "parameters": {
@@ -520,8 +517,113 @@
                 1200
             ],
             "id": "reply-saldo"
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "webhook/financial-events",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "name": "Webhook Financial",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                1500
+            ],
+            "id": "webhook-financial"
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{ $json.body.event }}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "charge_casual",
+                            "output": 0
+                        },
+                        {
+                            "value2": "charge_monthly",
+                            "output": 1
+                        }
+                    ]
+                }
+            },
+            "name": "Switch Event",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                220,
+                1500
+            ],
+            "id": "switch-event"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $json.body.user.phone }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "*Confirmação Recebida!* ✅\n\nOlá {{ $json.body.user.name }}, você está confirmado no jogo *{{ $json.body.game.title }}*.\n\nPagamento: R$ {{ $json.body.game.price }}\nChave PIX: {{ $json.body.pixKey }}\n\nFavor enviar comprovante."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "WPP Casual",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                440,
+                1400
+            ],
+            "id": "wpp-casual"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "body.players",
+                "options": {}
+            },
+            "name": "Split Monthly",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 2.1,
+            "position": [
+                440,
+                1600
+            ],
+            "id": "split-monthly"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $json.phone }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "*Mensalidade Peladeiros* ⚽\n\nOlá {{ $json.name }}, este é um lembrete da mensalidade.\n\nValor: R$ {{ $('Webhook Financial').first().json.body.amount }}\nChave PIX: {{ $('Webhook Financial').first().json.body.pixKey }}\n\nFavor enviar comprovante no grupo."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "WPP Monthly",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                660,
+                1600
+            ],
+            "id": "wpp-monthly"
         }
     ],
+    "settings": {},
     "connections": {
         "Cron 2 Dias Antes": {
             "main": [
@@ -781,6 +883,46 @@
                 [
                     {
                         "node": "Responder Saldo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook Financial": {
+            "main": [
+                [
+                    {
+                        "node": "Switch Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch Event": {
+            "main": [
+                [
+                    {
+                        "node": "WPP Casual",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Split Monthly",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Monthly": {
+            "main": [
+                [
+                    {
+                        "node": "WPP Monthly",
                         "type": "main",
                         "index": 0
                     }
