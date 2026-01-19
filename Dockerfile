@@ -1,9 +1,10 @@
-# Base image
+# Base image with OpenSSL 3.x support
 FROM node:18-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# Install libc6-compat and openssl for Prisma
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Copy package files
@@ -18,6 +19,8 @@ RUN npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
+# Install openssl in builder stage too
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -33,12 +36,16 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Install openssl for Prisma runtime
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Copy public folder (create empty if doesn't exist)
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
