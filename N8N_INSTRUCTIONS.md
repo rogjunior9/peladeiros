@@ -1,72 +1,46 @@
 # Guia de Automação N8N - Peladeiros
 
-Este guia descreve como configurar os workflows no N8N para automatizar as notificações do Grupo de WhatsApp.
+Este guia descreve como importar e configurar o workflow de automação no seu N8N.
 
-## 1. Configuração Inicial
+## 1. Importação do Workflow
 
-No Painel Admin do App (`/settings`), configure:
+1. Baixe o arquivo `n8n_peladeiros.json` que está na raiz do projeto.
+2. Acesse seu N8N em `n8n.rogeriojunior.com.br`.
+3. Crie um novo workflow ou clique em **Import from File**.
+4. Selecione o arquivo `n8n_peladeiros.json`.
 
-1. **ID do Grupo WhatsApp**: Copie o ID do grupo (ex: `12036304...@g.us`) onde o bot está.
-2. **Chave PIX**: Para aparecer nas mensagens.
-3. **Ative as automações** desejadas.
+## 2. Configurações Necessárias no N8N
 
-## 2. Endpoints da API para o N8N
+Após importar, você verá vários nós de **"Enviar WhatsApp"**. Eles precisam ser configurados com a sua API de WhatsApp (Evolution, WPPConnect, etc).
 
-O N8N deve fazer requisições `GET` para estes endpoints:
+1. Abra cada nó chamado **"Enviar WhatsApp (...)"**.
+2. No campo **URL**, substitua `YOUR_WHATSAPP_API_URL` pela URL real da sua API.
+    * Exemplo: `https://api.evolution.com/message/sendText`
+3. Verifique se o método de Autenticação (Header `apikey` ou `Authorization`) é necessário na aba "Authentication" ou "Headers" do nó HTTP Request.
+4. Salve e **ative** o Workflow.
 
-* **Trigger (Cérebro):** `https://peladeiros.rogeriojunior.com.br/api/n8n/trigger`
-  * Retorna a lista de jogos próximos e flags (`is2DaysBefore`, `is1DayBefore`, `isToday`, `isFinishedYesterday`).
-* **Mensagem Lista:** `https://peladeiros.rogeriojunior.com.br/api/n8n/message/list?gameId={ID}`
-  * Retorna o texto formatado da lista de presença.
-* **Mensagem Devedores:** `https://peladeiros.rogeriojunior.com.br/api/n8n/message/debtors?gameId={ID}`
-  * Retorna lista de quem não pagou (para jogos de ontem).
-* **Saldo:** `https://peladeiros.rogeriojunior.com.br/api/n8n/finance/balance`
-  * Retorna o saldo do caixa.
+## 3. Configuração do Webhook (/saldo)
 
-## 3. Workflows Sugeridos no N8N
+O fluxo de saldo começa com um nó **Webhook**.
 
-Você deve criar **Cron Jobs** (Schedule Triggers) no N8N para os horários específicos.
+1. Abra o nó **Webhook Saldo**.
+2. Copie a **Production URL** (algo como `https://n8n.rogeriojunior.com.br/webhook/saldo`).
+3. Configure sua API de WhatsApp para enviar mensagens recebidas (Webhooks) para essa URL.
+4. Certifique-se de que o caminho no JSON do webhook corresponde ao que o nó **Check Command** espera.
+    * Atualmente ele verifica `$json.body.message.text`. Se sua API enviar em outro formato (ex: `data.message.conversation`), ajuste a expressão no nó "Check Command".
 
-### Workflow A: Lembrete 2 Dias Antes (09h - 22h)
+## 4. Endpoints da API Utilizados
 
-* **Trigger:** Schedule `0 9,12,15,18,21 * * *` (Ajuste conforme fuso horário do servidor N8N)
-* **Ação:** GET `/api/n8n/trigger`
-* **Lógica (IF/Switch):** Para cada jogo, SE `is2DaysBefore == true` E `settings.enableReminder2Days == true`:
-  * GET `/api/n8n/message/list?gameId={{ $json.gameId }}`
-  * **WhatsApp Send:** Enviar `message` para `settings.whatsappGroupId`.
+O workflow chama automaticamente os seguintes endpoints do seu sistema Peladeiros:
 
-### Workflow B: Lembrete 1 Dia Antes (09h - 15h)
+* `GET /api/n8n/trigger`
+* `GET /api/n8n/message/list?gameId=...`
+* `GET /api/n8n/message/debtors?gameId=...`
+* `GET /api/n8n/finance/balance`
 
-* **Trigger:** Schedule `0 9,11,13,15 * * *`
-* **Ação:** GET `/api/n8n/trigger`
-* **Lógica:** SE `is1DayBefore == true` E `settings.enableReminder1Day == true`:
-  * GET `/api/n8n/message/list?gameId={{ $json.gameId }}`
-  * **WhatsApp Send:** Enviar mensagem.
+## 5. Variáveis de Ambiente (EasyPanel)
 
-### Workflow C: Lista Final (1 Dia Antes as 15:30)
+Lembre-se de configurar as variáveis no EasyPanel se quiser segurança extra ou se precisar que o sistema envie hooks diretamente (para o caso da lista de espera automática):
 
-* **Trigger:** Schedule `30 15 * * *`
-* **Ação:** GET `/api/n8n/trigger`
-* **Lógica:** SE `is1DayBefore == true` E `settings.enableFinalList == true`:
-  * GET `/api/n8n/message/list?gameId={{ $json.gameId }}`
-  * **WhatsApp Send:** Enviar mensagem ("Lista Final...").
-
-### Workflow D: Cobrança (Dia Seguinte 12h)
-
-* **Trigger:** Schedule `0 12 * * *`
-* **Ação:** GET `/api/n8n/trigger`
-* **Lógica:** SE `isFinishedYesterday == true` E `settings.enableDebtors == true`:
-  * GET `/api/n8n/message/debtors?gameId={{ $json.gameId }}`
-  * **IF:** `message` não for nulo/vazio.
-  * **WhatsApp Send:** Enviar mensagem.
-
-### Workflow E: Comando /saldo
-
-* **Trigger:** WhatsApp Message (Webhook) -> Filtrar texto `/saldo`
-* **Ação:** GET `/api/n8n/finance/balance`
-* **WhatsApp Send:** Responder com o saldo.
-
-## Notas Importantes
-
-* **Fuso Horário:** Verifique se o N8N está no mesmo fuso horário (Brasília -03:00). Se estiver em UTC, ajuste os CRONs (+3h).
-* **Segurança:** Recomenda-se adicionar Autenticação nos endpoints se possível (Header Authorization), configurando no N8N e no `.env`.
+* `N8N_WEBHOOK_URL`
+* `N8N_API_KEY`

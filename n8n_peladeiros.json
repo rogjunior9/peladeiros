@@ -1,0 +1,790 @@
+{
+    "name": "Peladeiros Automation Full",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 9,12,15,18,21 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Cron 2 Dias Antes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "trigger-2days"
+        },
+        {
+            "parameters": {
+                "url": "https://peladeiros.rogeriojunior.com.br/api/n8n/trigger",
+                "options": {}
+            },
+            "name": "Get Trigger Data (2 Days)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                220,
+                0
+            ],
+            "id": "http-trigger-2days"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "games",
+                "options": {}
+            },
+            "name": "Split Games (2 Days)",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 2.1,
+            "position": [
+                440,
+                0
+            ],
+            "id": "split-2days"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.is2DaysBefore }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Check is 2 Days",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                660,
+                0
+            ],
+            "id": "if-2days"
+        },
+        {
+            "parameters": {
+                "url": "=https://peladeiros.rogeriojunior.com.br/api/n8n/message/list?gameId={{ $json.gameId }}",
+                "options": {}
+            },
+            "name": "Get List Message (2 Days)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                880,
+                0
+            ],
+            "id": "get-msg-2days"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $('Get Trigger Data (2 Days)').first().json.settings.whatsappGroupId }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "={{ $json.message }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Enviar WhatsApp (2 Days)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1100,
+                0
+            ],
+            "id": "send-wpp-2days",
+            "notes": "Configure sua URL de API de WhatsApp aqui"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 9,11,13,15 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Cron 1 Dia Antes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                300
+            ],
+            "id": "trigger-1day"
+        },
+        {
+            "parameters": {
+                "url": "https://peladeiros.rogeriojunior.com.br/api/n8n/trigger",
+                "options": {}
+            },
+            "name": "Get Trigger Data (1 Day)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                220,
+                300
+            ],
+            "id": "http-trigger-1day"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "games",
+                "options": {}
+            },
+            "name": "Split Games (1 Day)",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 2.1,
+            "position": [
+                440,
+                300
+            ],
+            "id": "split-1day"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.is1DayBefore }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Check is 1 Day",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                660,
+                300
+            ],
+            "id": "if-1day"
+        },
+        {
+            "parameters": {
+                "url": "=https://peladeiros.rogeriojunior.com.br/api/n8n/message/list?gameId={{ $json.gameId }}",
+                "options": {}
+            },
+            "name": "Get List Message (1 Day)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                880,
+                300
+            ],
+            "id": "get-msg-1day"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $('Get Trigger Data (1 Day)').first().json.settings.whatsappGroupId }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "={{ $json.message }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Enviar WhatsApp (1 Day)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1100,
+                300
+            ],
+            "id": "send-wpp-1day"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "30 15 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Cron Lista Final",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                600
+            ],
+            "id": "trigger-final"
+        },
+        {
+            "parameters": {
+                "url": "https://peladeiros.rogeriojunior.com.br/api/n8n/trigger",
+                "options": {}
+            },
+            "name": "Get Trigger Data (Final)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                220,
+                600
+            ],
+            "id": "http-trigger-final"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "games",
+                "options": {}
+            },
+            "name": "Split Games (Final)",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 2.1,
+            "position": [
+                440,
+                600
+            ],
+            "id": "split-final"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.is1DayBefore }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Check is Final",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                660,
+                600
+            ],
+            "id": "if-final"
+        },
+        {
+            "parameters": {
+                "url": "=https://peladeiros.rogeriojunior.com.br/api/n8n/message/list?gameId={{ $json.gameId }}",
+                "options": {}
+            },
+            "name": "Get List Message (Final)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                880,
+                600
+            ],
+            "id": "get-msg-final"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $('Get Trigger Data (Final)').first().json.settings.whatsappGroupId }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "*LISTA FINAL - CONFIRA*\n\n{{ $json.message }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Enviar WhatsApp (Final)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1100,
+                600
+            ],
+            "id": "send-wpp-final"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 12 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Cron Cobranca",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                900
+            ],
+            "id": "trigger-debt"
+        },
+        {
+            "parameters": {
+                "url": "https://peladeiros.rogeriojunior.com.br/api/n8n/trigger",
+                "options": {}
+            },
+            "name": "Get Trigger Data (Debt)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                220,
+                900
+            ],
+            "id": "http-trigger-debt"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "games",
+                "options": {}
+            },
+            "name": "Split Games (Debt)",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 2.1,
+            "position": [
+                440,
+                900
+            ],
+            "id": "split-debt"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.isFinishedYesterday }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Check is Yesterday",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                660,
+                900
+            ],
+            "id": "if-debt"
+        },
+        {
+            "parameters": {
+                "url": "=https://peladeiros.rogeriojunior.com.br/api/n8n/message/debtors?gameId={{ $json.gameId }}",
+                "options": {}
+            },
+            "name": "Get Debtors Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                880,
+                900
+            ],
+            "id": "get-msg-debt"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.debtorsCount }}",
+                            "operation": "larger",
+                            "value2": 0
+                        }
+                    ]
+                }
+            },
+            "name": "Check has Debtors",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1100,
+                900
+            ],
+            "id": "if-has-debt"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $('Get Trigger Data (Debt)').first().json.settings.whatsappGroupId }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "={{ $json.message }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Enviar WhatsApp (Debt)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1320,
+                900
+            ],
+            "id": "send-wpp-debt"
+        },
+        {
+            "parameters": {
+                "path": "webhook/saldo",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "name": "Webhook Saldo",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                1200
+            ],
+            "id": "webhook-saldo"
+        },
+        {
+            "parameters": {
+                "url": "https://peladeiros.rogeriojunior.com.br/api/n8n/finance/balance",
+                "options": {}
+            },
+            "name": "Get Balance",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                220,
+                1200
+            ],
+            "id": "get-balance"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.body.message.text }}",
+                            "value2": "/saldo"
+                        }
+                    ]
+                }
+            },
+            "name": "Check Command",
+            "type": "n8n-nodes-base.if",
+            "position": [
+                440,
+                1200
+            ],
+            "id": "check-command",
+            "notes": "Verifica se a mensagem recebida é /saldo. Ajuste o path do json conforme seu webhook."
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "YOUR_WHATSAPP_API_URL/message/sendText/{{ $json.body.key.remoteJid }}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "={{ $('Get Balance').first().json.message }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Responder Saldo",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                660,
+                1200
+            ],
+            "id": "reply-saldo"
+        }
+    ],
+    "connections": {
+        "Cron 2 Dias Antes": {
+            "main": [
+                [
+                    {
+                        "node": "Get Trigger Data (2 Days)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Trigger Data (2 Days)": {
+            "main": [
+                [
+                    {
+                        "node": "Split Games (2 Days)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Games (2 Days)": {
+            "main": [
+                [
+                    {
+                        "node": "Check is 2 Days",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check is 2 Days": {
+            "main": [
+                [
+                    {
+                        "node": "Get List Message (2 Days)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get List Message (2 Days)": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar WhatsApp (2 Days)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cron 1 Dia Antes": {
+            "main": [
+                [
+                    {
+                        "node": "Get Trigger Data (1 Day)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Trigger Data (1 Day)": {
+            "main": [
+                [
+                    {
+                        "node": "Split Games (1 Day)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Games (1 Day)": {
+            "main": [
+                [
+                    {
+                        "node": "Check is 1 Day",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check is 1 Day": {
+            "main": [
+                [
+                    {
+                        "node": "Get List Message (1 Day)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get List Message (1 Day)": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar WhatsApp (1 Day)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cron Lista Final": {
+            "main": [
+                [
+                    {
+                        "node": "Get Trigger Data (Final)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Trigger Data (Final)": {
+            "main": [
+                [
+                    {
+                        "node": "Split Games (Final)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Games (Final)": {
+            "main": [
+                [
+                    {
+                        "node": "Check is Final",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check is Final": {
+            "main": [
+                [
+                    {
+                        "node": "Get List Message (Final)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get List Message (Final)": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar WhatsApp (Final)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cron Cobranca": {
+            "main": [
+                [
+                    {
+                        "node": "Get Trigger Data (Debt)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Trigger Data (Debt)": {
+            "main": [
+                [
+                    {
+                        "node": "Split Games (Debt)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Games (Debt)": {
+            "main": [
+                [
+                    {
+                        "node": "Check is Yesterday",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check is Yesterday": {
+            "main": [
+                [
+                    {
+                        "node": "Get Debtors Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Debtors Message": {
+            "main": [
+                [
+                    {
+                        "node": "Check has Debtors",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check has Debtors": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar WhatsApp (Debt)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook Saldo": {
+            "main": [
+                [
+                    {
+                        "node": "Check Command",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Command": {
+            "main": [
+                [
+                    {
+                        "node": "Get Balance",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Balance": {
+            "main": [
+                [
+                    {
+                        "node": "Responder Saldo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
