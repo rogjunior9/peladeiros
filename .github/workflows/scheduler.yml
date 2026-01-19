@@ -1,0 +1,18 @@
+name: Process Waiting List Cron
+
+on:
+  schedule:
+    # Executa a cada 30 minutos
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Permite executar manualmente pelo painel do GitHub Actions
+
+jobs:
+  trigger-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Waiting List API
+        run: |
+          # Chama o endpoint. O flag --fail faz o job falhar se o status for != 200
+          curl -X GET https://peladeiros.rogeriojunior.com.br/api/cron/process-waiting-list \
+          --fail \
+          --verbose
