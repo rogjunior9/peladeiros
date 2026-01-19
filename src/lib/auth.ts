@@ -15,6 +15,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
+        // Auto-promote admin
+        if (session.user.email === "rogjunior9@gmail.com") {
+          const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+          if (dbUser?.role !== "ADMIN") {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: "ADMIN" },
+            });
+            session.user.role = "ADMIN";
+          }
+        }
+        
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: {
