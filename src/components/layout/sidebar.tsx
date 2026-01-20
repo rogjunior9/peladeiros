@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   Users,
@@ -147,9 +148,12 @@ export function Sidebar({ open, setOpen }: SidebarProps) {
           {session?.user && (
             <div className="p-4 border-t border-white/5 bg-zinc-950/30">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold text-xs border border-white/10">
-                  {session.user.name?.[0]}
-                </div>
+                <Avatar className="h-9 w-9 border border-zinc-800">
+                  <AvatarImage src={session.user.image || ""} />
+                  <AvatarFallback className="bg-zinc-800 text-zinc-500 font-bold text-xs">
+                    {session.user.name?.[0]}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="overflow-hidden">
                   <p className="text-white text-xs font-bold truncate">{session.user.name}</p>
                   <p className="text-zinc-500 text-[10px] truncate">{session.user.email}</p>
