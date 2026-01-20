@@ -174,7 +174,7 @@ export default function PlayersPage() {
                 <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Avulsos</p>
                 <p className="text-3xl font-display font-bold text-blue-400">{stats.casual}</p>
               </div>
-              <Badge className="bg-blue-900/20 text-blue-400 border-blue-900/30 uppercase tracking-wider text-[10px]">Casual</Badge>
+              <Badge className="bg-blue-900/20 text-blue-400 border-blue-900/30 uppercase tracking-wider text-[10px]">Avulso</Badge>
             </div>
           </CardContent>
         </Card>
@@ -185,7 +185,7 @@ export default function PlayersPage() {
                 <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Goleiros</p>
                 <p className="text-3xl font-display font-bold text-yellow-500">{stats.goalkeeper}</p>
               </div>
-              <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-900/30 uppercase tracking-wider text-[10px]">Gol</Badge>
+              <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-900/30 uppercase tracking-wider text-[10px]">Goleiro</Badge>
             </div>
           </CardContent>
         </Card>
