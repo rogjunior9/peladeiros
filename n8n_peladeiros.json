@@ -520,6 +520,39 @@
                 1200
             ],
             "id": "reply-saldo"
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "webhook/peladeiros-audit",
+                "options": {}
+            },
+            "name": "Webhook Audit",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                1500
+            ],
+            "id": "webhook-audit"
+        },
+        {
+            "parameters": {
+                "fromEmail": "sistema@peladeiros.com",
+                "toEmail": "admin@peladeiros.com",
+                "subject": "=Alerta de Auditoria: {{ $json.body.action }} em {{ $json.body.entity }}",
+                "text": "=O usuário {{ $json.body.userId }} executou uma ação de {{ $json.body.action }} na entidade {{ $json.body.entity }} (ID: {{ $json.body.entityId }}).\n\nDetalhes:\n{{ $json.body.details }}",
+                "options": {}
+            },
+            "name": "Enviar Email (Audit)",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                220,
+                1500
+            ],
+            "id": "send-email-audit",
+            "notes": "Configure suas credenciais SMTP aqui"
         }
     ],
     "connections": {
@@ -781,6 +814,17 @@
                 [
                     {
                         "node": "Responder Saldo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook Audit": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar Email (Audit)",
                         "type": "main",
                         "index": 0
                     }

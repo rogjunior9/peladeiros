@@ -6,32 +6,34 @@
   :root {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    
+
     --card: 0 0% 4%;
     --card-foreground: 0 0% 100%;
-    
+
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 100%;
-    
-    --primary: 234 99% 25%; /* #010E80 Inter Blue */
+
+    --primary: 234 99% 25%;
+    /* #010E80 Inter Blue */
     --primary-foreground: 0 0% 100%;
-    
+
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 100%;
-    
+
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 60%;
-    
-    --accent: 40 48% 56%; /* #C5A059 Inter Gold */
+
+    --accent: 40 48% 56%;
+    /* #C5A059 Inter Gold */
     --accent-foreground: 0 0% 100%;
-    
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    
+
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --ring: 234 99% 25%;
-    
+
     --radius: 0.5rem;
 
     --success: 142 76% 36%;
@@ -39,32 +41,32 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
   }
- 
+
   .dark {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    
+
     --card: 0 0% 4%;
     --card-foreground: 0 0% 100%;
-    
+
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 100%;
-    
+
     --primary: 234 99% 25%;
     --primary-foreground: 0 0% 100%;
-    
+
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 100%;
-    
+
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 60%;
-    
+
     --accent: 40 48% 56%;
     --accent-foreground: 0 0% 100%;
-    
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
-    
+
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --ring: 234 99% 25%;
@@ -80,6 +82,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -101,4 +104,11 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/50;
+}
+
+/* Fix dark mode date/time inputs */
+input[type="date"],
+input[type="time"],
+input[type="month"] {
+  color-scheme: dark;
 }

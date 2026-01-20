@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Loader } from "@/components/ui/loader";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, getGameTypeLabel } from "@/lib/utils";
 import { MapPin, Plus, Edit, Trash2, Users, Calendar } from "lucide-react";
@@ -39,6 +40,7 @@ interface Venue {
   gameType: string;
   capacity: number;
   isActive: boolean;
+  googleMapsLink?: string | null;
   _count: {
     games: number;
   };
@@ -54,6 +56,7 @@ const emptyVenue = {
   pricePerHour: "",
   gameType: "SYNTHETIC_GRASS",
   capacity: "22",
+  googleMapsLink: "",
 };
 
 export default function VenuesPage() {
@@ -99,6 +102,7 @@ export default function VenuesPage() {
         pricePerHour: venue.pricePerHour?.toString() || "",
         gameType: venue.gameType,
         capacity: venue.capacity.toString(),
+        googleMapsLink: venue.googleMapsLink || "",
       });
     } else {
       setEditingVenue(null);
@@ -168,8 +172,8 @@ export default function VenuesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-green-600">Carregando...</div>
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <Loader />
       </div>
     );
   }
@@ -251,6 +255,17 @@ export default function VenuesPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Rua, numero"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Link do Google Maps</Label>
+                <Input
+                  value={formData.googleMapsLink}
+                  onChange={(e) =>
+                    setFormData({ ...formData, googleMapsLink: e.target.value })
+                  }
+                  placeholder="https://maps.app.goo.gl/..."
                 />
               </div>
               <div className="grid gap-4 md:grid-cols-3">
@@ -348,32 +363,54 @@ export default function VenuesPage() {
                 <Badge variant="outline">{getGameTypeLabel(venue.gameType)}</Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p>{venue.address}</p>
-                {venue.phone && <p>Tel: {venue.phone}</p>}
+            <CardContent className="space-y-4">
+              <a
+                href={venue.googleMapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.address}, ${venue.city} - ${venue.state}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group relative aspect-video w-full overflow-hidden rounded-md bg-muted"
+              >
+                <img
+                  src={`https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`}
+                  alt={venue.name}
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-60 group-hover:opacity-100"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+
+                <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white">
+                  <MapPin className="h-4 w-4 text-accent" />
+                  <span className="text-xs font-medium">Abrir no Maps</span>
+                </div>
+              </a>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">{venue.name}</p>
+                <p className="text-xs text-zinc-400 line-clamp-2">{venue.address}</p>
               </div>
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="flex items-center space-x-4 text-sm text-gray-500">
-                  <span className="flex items-center">
-                    <Users className="h-4 w-4 mr-1" />
+
+              <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                <div className="flex items-center gap-3 text-xs text-zinc-500">
+                  <span className="flex items-center" title="Capacidade">
+                    <Users className="h-3.5 w-3.5 mr-1" />
                     {venue.capacity}
                   </span>
-                  <span className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {venue._count.games} jogos
+                  <span className="flex items-center" title="Jogos realizados">
+                    <Calendar className="h-3.5 w-3.5 mr-1" />
+                    {venue._count.games}
                   </span>
                 </div>
                 {venue.pricePerHour && (
-                  <span className="font-medium text-green-600">
+                  <span className="text-sm font-bold text-green-500">
                     {formatCurrency(venue.pricePerHour)}/h
                   </span>
                 )}
               </div>
-              <div className="flex justify-end space-x-2 mt-4">
+
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="text-zinc-400 hover:text-white"
                   onClick={() => handleOpenDialog(venue)}
                 >
                   <Edit className="h-4 w-4" />
@@ -381,7 +418,7 @@ export default function VenuesPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-red-600 hover:text-red-700"
+                  className="text-red-500 hover:text-red-400 hover:bg-red-950/20"
                   onClick={() => handleDelete(venue.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -399,6 +436,6 @@ export default function VenuesPage() {
           </Card>
         )}
       </div>
-    </div>
+    </div >
   );
 }

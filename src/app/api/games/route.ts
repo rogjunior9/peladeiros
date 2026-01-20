@@ -73,29 +73,45 @@ export async function POST(request: NextRequest) {
       priceGoalkeeper,
       venueId,
       billingType,
+      isRecurring,
     } = body;
 
-    const game = await prisma.game.create({
-      data: {
-        title,
-        description,
-        date: new Date(date),
-        startTime,
-        endTime,
-        gameType,
-        maxPlayers: maxPlayers ? parseInt(String(maxPlayers)) : 22,
-        pricePerPlayer: pricePerPlayer ? parseFloat(String(pricePerPlayer)) : 0,
-        priceGoalkeeper: priceGoalkeeper ? parseFloat(String(priceGoalkeeper)) : 0,
-        billingType: billingType || "SINGLE",
-        venueId,
-        createdById: session.user.id,
-      },
-      include: {
-        venue: true,
-      },
-    });
+    // Helper to fix date timezone (force 12:00 UTC)
+    const getFixedDate = (dateString: string) => new Date(`${dateString}T12:00:00Z`);
 
-    return NextResponse.json(game, { status: 201 });
+    const createdGames = [];
+    const recurrenceId = isRecurring ? crypto.randomUUID() : null;
+    const iterations = isRecurring ? 26 : 1; // 26 weeks = 6 months
+
+    for (let i = 0; i < iterations; i++) {
+      const gameDate = getFixedDate(date);
+      gameDate.setDate(gameDate.getDate() + (i * 7));
+
+      const game = await prisma.game.create({
+        data: {
+          title,
+          description,
+          date: gameDate,
+          startTime,
+          endTime,
+          gameType,
+          maxPlayers: maxPlayers ? parseInt(String(maxPlayers)) : 22,
+          pricePerPlayer: pricePerPlayer ? parseFloat(String(pricePerPlayer)) : 0,
+          priceGoalkeeper: priceGoalkeeper ? parseFloat(String(priceGoalkeeper)) : 0,
+          billingType: billingType || "SINGLE",
+          venueId,
+          createdById: session.user.id,
+          recurrenceId,
+        },
+        include: {
+          venue: true,
+        },
+      });
+      createdGames.push(game);
+    }
+
+    // Return the first created game
+    return NextResponse.json(createdGames[0], { status: 201 });
   } catch (error) {
     console.error("Erro ao criar jogo:", error);
     return NextResponse.json(

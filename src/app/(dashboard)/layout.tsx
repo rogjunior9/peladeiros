@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { Loader } from "@/components/ui/loader";
+import { LoginOnboarding } from "@/components/LoginOnboarding";
 
 export default function DashboardLayout({
   children,
@@ -23,8 +25,8 @@ export default function DashboardLayout({
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-green-600">Carregando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#09090B]">
+        <Loader />
       </div>
     );
   }
@@ -34,7 +36,8 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-[#09090B]">
+      <LoginOnboarding />
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="lg:pl-64">
         <Header onMenuClick={() => setSidebarOpen(true)} />

@@ -61,6 +61,7 @@ interface Game {
     city: string;
     pricePerHour?: number;
   };
+  recurrenceId?: string | null;
   confirmations: Array<{
     id: string;
     status: string;
@@ -119,16 +120,17 @@ export default function GameDetailPage() {
   const executeConfirmation = async (status: string) => {
     setConfirming(true);
     try {
+      const isRemoval = status === "REMOVE";
       const response = await fetch(`/api/games/${gameId}/confirm`, {
-        method: "POST",
+        method: isRemoval ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: isRemoval ? undefined : JSON.stringify({ status }),
       });
 
       if (response.ok) {
         toast({
-          title: status === "CONFIRMED" ? "PRESENÇA CONFIRMADA" : "AUSÊNCIA INFORMADA",
-          description: status === "CONFIRMED" ? "Prepare-se para o jogo!" : "Esperamos você na próxima.",
+          title: isRemoval ? "PRESENÇA CANCELADA" : (status === "CONFIRMED" ? "PRESENÇA CONFIRMADA" : "AUSÊNCIA INFORMADA"),
+          description: isRemoval ? "Sua vaga foi liberada." : (status === "CONFIRMED" ? "Prepare-se para o jogo!" : "Esperamos você na próxima."),
           className: "bg-zinc-900 border-accent/20 text-white",
         });
         fetchGame();
@@ -149,6 +151,27 @@ export default function GameDetailPage() {
 
   const handleConfirmation = async (status: string) => {
     if (status === "CONFIRMED") {
+      // Check for 3-day restriction
+      if (game) {
+        const gameDate = new Date(game.date);
+        gameDate.setHours(0, 0, 0, 0); // Normalize game date
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize today
+
+        const diffTime = gameDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 3 && !isAdmin) {
+          toast({
+            title: "AGUARDE",
+            description: "A confirmação só é liberada 3 dias antes do jogo.",
+            variant: "warning",
+          });
+          return;
+        }
+      }
+
       const hasCpf = userProfile?.document || (session?.user as any)?.document;
       if (!hasCpf) {
         setShowCpfDialog(true);
@@ -172,9 +195,12 @@ export default function GameDetailPage() {
     await executeConfirmation("CONFIRMED");
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (deleteSeries = false, deleteFuture = false) => {
     try {
-      await fetch(`/api/games/${gameId}`, { method: "DELETE" });
+      const query = deleteSeries
+        ? `?deleteSeries=true&deleteFuture=${deleteFuture}`
+        : "";
+      await fetch(`/api/games/${gameId}${query}`, { method: "DELETE" });
       router.push("/games");
     } catch (error) {
       toast({ title: "Erro ao excluir", variant: "destructive" });
@@ -233,11 +259,28 @@ export default function GameDetailPage() {
                   <AlertDialogContent className="bg-zinc-950 border-zinc-800 text-white">
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-display font-medium text-xl">EXCLUIR JOGO?</AlertDialogTitle>
-                      <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                      <AlertDialogDescription>
+                        {game.recurrenceId
+                          ? "Este jogo faz parte de uma sequência recorrente. Como deseja prosseguir?"
+                          : "Esta ação não pode ser desfeita."
+                        }
+                      </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5">Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-red-600">Excluir</AlertDialogAction>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                      <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5 mt-0">Cancelar</AlertDialogCancel>
+
+                      {game.recurrenceId ? (
+                        <>
+                          <AlertDialogAction onClick={() => handleDelete(false)} className="bg-red-900/50 hover:bg-red-900 text-white">
+                            Apenas este
+                          </AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleDelete(true, true)} className="bg-red-600 text-white">
+                            Este e futuros
+                          </AlertDialogAction>
+                        </>
+                      ) : (
+                        <AlertDialogAction onClick={() => handleDelete()} className="bg-red-600">Excluir</AlertDialogAction>
+                      )}
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -377,18 +420,18 @@ export default function GameDetailPage() {
                   <p className="text-zinc-500 text-sm">Confirme sua presença agora e receba o código PIX automaticamente.</p>
                 </div>
 
-                {myConfirmation ? (
+                {myConfirmation && myConfirmation.status !== 'DECLINED' ? (
                   <div className="space-y-4">
                     <div className={`p-4 rounded-xl border flex items-center justify-center gap-3 ${myConfirmation.status === 'CONFIRMED'
-                        ? 'bg-accent/10 border-accent/20 text-accent'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                      ? 'bg-accent/10 border-accent/20 text-accent'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
                       }`}>
                       {myConfirmation.status === 'CONFIRMED' ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                       <span className="font-display font-bold uppercase tracking-wider">{getConfirmationStatusLabel(myConfirmation.status)}</span>
                     </div>
 
                     <Button
-                      onClick={() => executeConfirmation("DECLINED")}
+                      onClick={() => executeConfirmation("REMOVE")}
                       disabled={confirming}
                       variant="outline"
                       className="w-full h-12 border-zinc-800 bg-transparent text-zinc-400 hover:text-white hover:border-white/20 uppercase tracking-widest font-display text-sm"
@@ -398,6 +441,12 @@ export default function GameDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {myConfirmation?.status === 'DECLINED' && (
+                      <div className="p-4 rounded-xl border bg-zinc-900 border-zinc-800 text-zinc-400 flex items-center justify-center gap-3 mb-2">
+                        <Clock className="h-5 w-5" />
+                        <span className="font-display font-bold uppercase tracking-wider">{getConfirmationStatusLabel('DECLINED')}</span>
+                      </div>
+                    )}
                     <Button
                       onClick={() => handleConfirmation("CONFIRMED")}
                       disabled={confirming || (isFull && !isAdmin)} // Admin can override full
@@ -429,7 +478,14 @@ export default function GameDetailPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Arrecadação Prevista</span>
-                    <span className="text-accent font-bold">{formatCurrency(confirmedPlayers.length * game.pricePerPlayer)}</span>
+                    <span className="text-accent font-bold">
+                      {formatCurrency(confirmedPlayers.reduce((acc, c) => {
+                        const price = c.user?.playerType === "GOALKEEPER"
+                          ? (game.priceGoalkeeper || 0)
+                          : game.pricePerPlayer;
+                        return acc + price;
+                      }, 0))}
+                    </span>
                   </div>
                 </div>
               </div>

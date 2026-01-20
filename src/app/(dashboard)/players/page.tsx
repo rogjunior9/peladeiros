@@ -24,8 +24,20 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { getPlayerTypeLabel } from "@/lib/utils";
-import { Search, Users, Edit, UserCog, Shield, Loader2 } from "lucide-react";
+import { getPlayerTypeLabel, cn } from "@/lib/utils";
+import {
+  Search,
+  Users,
+  Edit,
+  UserCog,
+  Shield,
+  Loader2,
+  MessageCircle,
+  CalendarDays,
+  Check,
+  X,
+  DollarSign
+} from "lucide-react";
 
 interface Player {
   id: string;
@@ -42,6 +54,28 @@ interface Player {
   };
 }
 
+interface UserDetail extends Player {
+  document: string;
+  createdAt: string;
+  confirmations: {
+    id: string;
+    status: string;
+    game: {
+      id: string;
+      title: string;
+      date: string;
+    };
+  }[];
+  payments: {
+    id: string;
+    amount: number;
+    status: string;
+    gameId: string | null;
+    referenceMonth: string | null;
+    createdAt: string;
+  }[];
+}
+
 export default function PlayersPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -50,6 +84,9 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+  const [playerDetails, setPlayerDetails] = useState<UserDetail | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const isAdmin = session?.user?.role === "ADMIN";
@@ -71,6 +108,29 @@ export default function PlayersPage() {
       setLoading(false);
     }
   };
+
+  const fetchPlayerDetails = async (id: string) => {
+    setLoadingDetails(true);
+    try {
+      const response = await fetch(`/api/users/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlayerDetails(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar detalhes:", error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewingPlayerId) {
+      fetchPlayerDetails(viewingPlayerId);
+    } else {
+      setPlayerDetails(null);
+    }
+  }, [viewingPlayerId]);
 
   const handleUpdatePlayer = async () => {
     if (!editingPlayer) return;
@@ -118,6 +178,21 @@ export default function PlayersPage() {
       filterType === "all" || player.playerType === filterType;
     return matchesSearch && matchesType;
   });
+
+  const isGamePaid = (gameDate: string, gameId: string, player: UserDetail) => {
+    if (player.playerType === "GOALKEEPER") return true;
+
+    if (player.playerType === "MONTHLY") {
+      const monthStr = gameDate.substring(0, 7); // YYYY-MM
+      return player.payments.some(
+        (p) => p.referenceMonth === monthStr && p.status === "CONFIRMED"
+      );
+    }
+
+    return player.payments.some(
+      (p) => p.gameId === gameId && p.status === "CONFIRMED"
+    );
+  };
 
   const stats = {
     total: players.length,
@@ -227,7 +302,11 @@ export default function PlayersPage() {
             {filteredPlayers.map((player) => (
               <div
                 key={player.id}
-                className="flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors rounded-lg -mx-2 my-1"
+                className={cn(
+                  "flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors rounded-lg -mx-2 my-1",
+                  isAdmin && "cursor-pointer"
+                )}
+                onClick={() => isAdmin && setViewingPlayerId(player.id)}
               >
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-12 w-12 border border-zinc-800">
@@ -238,7 +317,7 @@ export default function PlayersPage() {
                   </Avatar>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <p className="font-bold text-white">{player.name || "Sem nome"}</p>
+                      <p className="font-bold text-white uppercase tracking-tight">{player.name || "Sem nome"}</p>
                       {player.role === "ADMIN" && (
                         <Badge variant="outline" className="border-accent/30 text-accent text-[10px] uppercase font-bold px-1.5 py-0 h-5">
                           Admin
@@ -250,14 +329,21 @@ export default function PlayersPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-zinc-500">{player.email}</p>
+                    {player.phone ? (
+                      <div className="flex items-center text-sm text-zinc-400 mt-1">
+                        <MessageCircle className="h-3 w-3 mr-1.5 text-emerald-500" />
+                        {player.phone}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-600 uppercase tracking-widest mt-1 block">Sem telefone</span>
+                    )}
                     <div className="flex items-center space-x-3 mt-1.5">
-                      <Badge variant="outline" className="border-white/10 text-zinc-400 text-[10px] uppercase tracking-wider font-normal">
+                      <Badge variant="outline" className="border-white/10 text-zinc-500 text-[10px] uppercase tracking-wider font-bold">
                         {getPlayerTypeLabel(player.playerType)}
                       </Badge>
-                      <span className="text-xs text-zinc-600 flex items-center">
-                        <Users className="h-3 w-3 mr-1" />
-                        {player._count.confirmations} jogos
+                      <span className="text-[10px] text-zinc-600 uppercase font-bold tracking-widest flex items-center">
+                        <CalendarDays className="h-3 w-3 mr-1 text-accent/50" />
+                        {player._count.confirmations} presenças
                       </span>
                     </div>
                   </div>
@@ -266,65 +352,192 @@ export default function PlayersPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setEditingPlayer(player)}
-                    className="text-zinc-600 hover:text-white hover:bg-white/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPlayer(player);
+                    }}
+                    className="text-zinc-600 hover:text-accent hover:bg-accent/10"
                   >
-                    <Edit className="h-4 w-4" />
+                    <UserCog className="h-4 w-4" />
                   </Button>
                 )}
               </div>
             ))}
 
             {filteredPlayers.length === 0 && (
-              <p className="text-center text-zinc-600 py-12 italic uppercase text-sm tracking-widest">
-                Nenhum jogador encontrado
-              </p>
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+                <Users className="h-10 w-10 opacity-10 mb-4" />
+                <p className="uppercase tracking-[0.2em] font-light italic">Nenhum registro encontrado</p>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
 
+      {/* Details Dialog */}
+      <Dialog open={!!viewingPlayerId} onOpenChange={() => setViewingPlayerId(null)}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b border-white/5 pb-6">
+            <div className="flex items-center space-x-4">
+              <Avatar className="h-16 w-16 border-2 border-accent/20">
+                <AvatarImage src={playerDetails?.image} />
+                <AvatarFallback className="bg-zinc-900 text-zinc-500 text-2xl font-bold">
+                  {playerDetails?.name?.charAt(0) || "?"}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <DialogTitle className="text-3xl font-display font-bold uppercase tracking-tight text-white">
+                  {playerDetails?.name || "Carregando..."}
+                </DialogTitle>
+                <div className="flex items-center space-x-2 mt-1">
+                  <Badge className="bg-accent/10 text-accent border-accent/20 uppercase text-[10px] font-bold">
+                    {playerDetails ? getPlayerTypeLabel(playerDetails.playerType) : "..."}
+                  </Badge>
+                  <p className="text-zinc-500 text-sm">{playerDetails?.email}</p>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {loadingDetails ? (
+            <div className="py-20 flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Mapeando histórico...</p>
+            </div>
+          ) : playerDetails && (
+            <div className="py-6 space-y-8">
+              {/* Histórico de Jogos */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-accent flex items-center">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Participação em Peladas
+                </h3>
+                <div className="bg-black/40 rounded-xl border border-white/5 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-white/[0.02]">
+                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Data / Jogo</th>
+                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-center">Status</th>
+                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-right">Pagamento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {playerDetails.confirmations.map((conf) => {
+                        const paid = isGamePaid(conf.game.date, conf.game.id, playerDetails);
+                        return (
+                          <tr key={conf.id} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="font-bold text-zinc-200">{conf.game.title}</p>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString('pt-BR')}</p>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Badge variant="outline" className="text-[9px] uppercase font-bold border-white/10 text-zinc-500">
+                                {conf.status === 'CONFIRMED' ? 'Jogou' : 'Ausente'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {paid ? (
+                                <Badge variant="success" className="uppercase text-[9px] font-bold tracking-widest px-2 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                  <Check className="h-3 w-3 mr-1" /> Pago
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
+                                  <X className="h-3 w-3 mr-1" /> Pendente
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {playerDetails.confirmations.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-8 text-center text-zinc-600 italic text-xs">
+                            Nenhuma participação registrada
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Histórico Financeiro Direto */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-accent flex items-center">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Transações Diretas
+                </h3>
+                <div className="grid gap-3">
+                  {playerDetails.payments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5">
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                          {p.referenceMonth ? `Ref: ${p.referenceMonth}` : (p.gameId ? 'Pelada Avulsa' : 'Lançamento Manual')}
+                        </p>
+                        <p className="text-xs text-zinc-400 mt-0.5">{new Date(p.createdAt).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono font-bold text-white">R$ {p.amount.toFixed(2)}</p>
+                        <Badge variant="outline" className={cn(
+                          "text-[9px] uppercase font-bold tracking-widest px-2 h-auto",
+                          p.status === 'CONFIRMED' ? 'border-emerald-500/50 text-emerald-500' : 'border-yellow-500/50 text-yellow-500'
+                        )}>
+                          {p.status === 'CONFIRMED' ? 'Confirmado' : 'Pendente'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                  {playerDetails.payments.length === 0 && (
+                    <p className="text-center text-zinc-600 italic text-xs py-4">Sem histórico financeiro direto</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog - Styled Dark */}
       <Dialog open={!!editingPlayer} onOpenChange={() => setEditingPlayer(null)}>
         <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-display font-bold text-xl uppercase tracking-wide">Editar Jogador</DialogTitle>
+            <DialogTitle className="font-display font-bold text-xl uppercase tracking-wide">Configurar Jogador</DialogTitle>
             <DialogDescription className="text-zinc-500">
-              Atualize as informações do perfil
+              Ajustes técnicos e permissões de acesso.
             </DialogDescription>
           </DialogHeader>
           {editingPlayer && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label className="text-zinc-400">Nome</Label>
+                <Label className="text-zinc-400 uppercase text-[10px] font-bold tracking-widest">Nome de Guerra</Label>
                 <Input
                   value={editingPlayer.name || ""}
                   onChange={(e) =>
                     setEditingPlayer({ ...editingPlayer, name: e.target.value })
                   }
-                  className="bg-zinc-900 border-white/10 text-white focus:border-accent"
+                  className="bg-zinc-900 border-white/10 text-white h-12 focus:border-accent"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-400">Telefone</Label>
+                <Label className="text-zinc-400 uppercase text-[10px] font-bold tracking-widest">WhatsApp</Label>
                 <Input
                   value={editingPlayer.phone || ""}
                   onChange={(e) =>
                     setEditingPlayer({ ...editingPlayer, phone: e.target.value })
                   }
-                  className="bg-zinc-900 border-white/10 text-white focus:border-accent"
+                  className="bg-zinc-900 border-white/10 text-white h-12 focus:border-accent"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Tipo de Jogador</Label>
+                  <Label className="text-zinc-400 uppercase text-[10px] font-bold tracking-widest">Categoria</Label>
                   <Select
                     value={editingPlayer.playerType}
                     onValueChange={(value) =>
                       setEditingPlayer({ ...editingPlayer, playerType: value })
                     }
                   >
-                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white">
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white h-12">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
@@ -335,25 +548,25 @@ export default function PlayersPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">Função</Label>
+                  <Label className="text-zinc-400 uppercase text-[10px] font-bold tracking-widest">Permissões</Label>
                   <Select
                     value={editingPlayer.role}
                     onValueChange={(value) =>
                       setEditingPlayer({ ...editingPlayer, role: value })
                     }
                   >
-                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white">
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white h-12">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
-                      <SelectItem value="PLAYER">Jogador</SelectItem>
-                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                      <SelectItem value="PLAYER">Combatente (Player)</SelectItem>
+                      <SelectItem value="ADMIN">Estado Maior (Admin)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3 pt-2">
+              <div className="flex items-center space-x-3 pt-2 bg-black/20 p-4 rounded-xl border border-white/5">
                 <input
                   type="checkbox"
                   id="isActive"
@@ -364,22 +577,25 @@ export default function PlayersPage() {
                       isActive: e.target.checked,
                     })
                   }
-                  className="h-4 w-4 bg-zinc-900 border-zinc-700 rounded accent-accent"
+                  className="h-5 w-5 bg-zinc-900 border-zinc-700 rounded accent-accent cursor-pointer"
                 />
-                <Label htmlFor="isActive" className="text-white cursor-pointer select-none">Usuário Ativo</Label>
+                <div>
+                  <Label htmlFor="isActive" className="text-white cursor-pointer select-none font-bold uppercase text-xs">Acesso Autorizado</Label>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-tighter">Define se o jogador pode realizar login e confirmar presença.</p>
+                </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingPlayer(null)} className="border-white/10 text-zinc-400 hover:text-white hover:bg-white/5">
-              Cancelar
+          <DialogFooter className="pt-6 border-t border-white/5">
+            <Button variant="ghost" onClick={() => setEditingPlayer(null)} className="text-zinc-500 hover:text-white uppercase tracking-widest text-[10px] font-bold">
+              Abortar
             </Button>
             <Button
               onClick={handleUpdatePlayer}
               disabled={saving}
-              className="bg-accent text-black hover:bg-white font-bold"
+              className="bg-accent text-black hover:bg-white font-bold uppercase tracking-widest text-[10px] px-8"
             >
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Salvar Alterações"}
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Salvar Configurações"}
             </Button>
           </DialogFooter>
         </DialogContent>

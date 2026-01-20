@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/lib/audit";
 
 export async function DELETE(
   request: NextRequest,
@@ -24,6 +25,14 @@ export async function DELETE(
     await prisma.transaction.delete({
       where: { id: params.id },
     });
+
+    await createAuditLog(
+      session.user.id,
+      "DELETE",
+      "TRANSACTION",
+      params.id,
+      {}
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

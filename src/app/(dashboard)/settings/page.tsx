@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { getPlayerTypeLabel } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { User, Phone, Mail, Shield, Bell, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { MonthlyChargeDialog } from "@/components/MonthlyChargeDialog";
@@ -43,6 +51,7 @@ export default function SettingsPage() {
     name: "",
     phone: "",
     document: "",
+    playerType: "CASUAL",
   });
 
   // System Settings State (Admin)
@@ -74,11 +83,11 @@ export default function SettingsPage() {
             name: data.name || "",
             phone: data.phone ? maskPhone(data.phone) : "",
             document: data.document ? maskCPF(data.document) : "",
+            playerType: data.playerType || "CASUAL",
           });
         })
         .catch(console.error);
     }
-
     if (isAdmin) {
       fetchSystemSettings();
     }
@@ -112,12 +121,27 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name: profileData.name,
           phone: rawPhone,
-          document: rawDocument
+          document: rawDocument,
+          playerType: profileData.playerType,
         }),
       });
 
       if (response.ok) {
-        toast({ title: "Perfil atualizado!", className: "bg-zinc-900 border-accent/20 text-white" });
+        const updatedUser = await response.json();
+
+        // Update local state immediately
+        setProfileData({
+          name: updatedUser.name || "",
+          phone: updatedUser.phone ? maskPhone(updatedUser.phone) : "",
+          document: updatedUser.document ? maskCPF(updatedUser.document) : "",
+          playerType: updatedUser.playerType || "CASUAL",
+        });
+
+        toast({
+          title: "Perfil atualizado!",
+          className: "bg-zinc-900 border-accent/20 text-white"
+        });
+
         await update();
       } else {
         throw new Error("Erro ao atualizar");
@@ -416,6 +440,26 @@ export default function SettingsPage() {
                   maxLength={14}
                   className="bg-zinc-900 border-white/10 text-white focus:border-accent h-12 font-mono"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="playerType" className="text-zinc-400 flex items-center">
+                  <User className="h-4 w-4 mr-2 text-accent" />
+                  Tipo de Jogador
+                </Label>
+                <Select
+                  value={profileData.playerType}
+                  onValueChange={(value) => setProfileData({ ...profileData, playerType: value })}
+                >
+                  <SelectTrigger className="bg-zinc-900 border-white/10 text-white focus:border-accent h-12">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                    <SelectItem value="MONTHLY">Mensalista</SelectItem>
+                    <SelectItem value="CASUAL">Avulso</SelectItem>
+                    <SelectItem value="GOALKEEPER">Goleiro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="pt-4 flex justify-end">

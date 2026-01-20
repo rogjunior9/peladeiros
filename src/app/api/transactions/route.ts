@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,11 +22,11 @@ export async function GET(request: NextRequest) {
         ...(type ? { type: type as any } : {}),
         ...(startDate || endDate
           ? {
-              date: {
-                ...(startDate ? { gte: new Date(startDate) } : {}),
-                ...(endDate ? { lte: new Date(endDate) } : {}),
-              },
-            }
+            date: {
+              ...(startDate ? { gte: new Date(startDate) } : {}),
+              ...(endDate ? { lte: new Date(endDate) } : {}),
+            },
+          }
           : {}),
       },
       include: {
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    await createAuditLog(
+      session.user.id,
+      "CREATE",
+      "TRANSACTION",
+      transaction.id,
+      { type, amount, description, category, date }
+    );
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {

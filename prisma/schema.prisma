@@ -102,6 +102,22 @@ model VerificationToken {
 }
 
 // Main Models
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, WARNING, SUCCESS, ERROR
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -123,6 +139,8 @@ model User {
   createdGames  Game[]     @relation("GameCreator")
   createdVenues Venue[]    @relation("VenueCreator")
   transactions  Transaction[] @relation("TransactionCreator")
+  notifications Notification[]
+  auditLogs     AuditLog[]
 
   @@map("users")
 }
@@ -131,6 +149,7 @@ model Venue {
   id          String   @id @default(cuid())
   name        String
   address     String
+  googleMapsLink String?
   city        String
   state       String
   zipCode     String?
@@ -161,6 +180,7 @@ model Game {
   pricePerPlayer Float
   priceGoalkeeper Float  @default(0)
   billingType   BillingType @default(SINGLE) // Novo campo
+  recurrenceId  String?  // Identifica se faz parte de uma serie recorrente
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -257,9 +277,26 @@ model SystemConfig {
   key       String   @unique
   value     String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt          DateTime @updatedAt
 
   @@map("system_config")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // CREATE, UPDATE, DELETE
+  entity    String   // TRANSACTION, GAME, USER, etc
+  entityId  String
+  details   String?  @db.Text // JSON string with changed fields
+  ipAddress String?
+  userAgent String?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }
 
 model NotificationSettings {

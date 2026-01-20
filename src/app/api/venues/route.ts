@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       pricePerHour,
       gameType,
       capacity,
+      googleMapsLink,
     } = body;
 
     const venue = await prisma.venue.create({
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         pricePerHour: pricePerHour ? parseFloat(pricePerHour) : null,
         gameType,
         capacity: capacity ? parseInt(String(capacity)) : 22,
+        googleMapsLink,
         createdById: session.user.id,
       },
     });

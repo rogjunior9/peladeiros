@@ -113,7 +113,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <Link href={`/games/${nextGame.id}`}>
-                      <Button className="bg-accent hover:bg-white text-black font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(197,160,89,0.2)]">
+                      <Button className="bg-accent hover:bg-accent/90 text-black font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(197,160,89,0.2)]">
                         Confirmar Presença
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>

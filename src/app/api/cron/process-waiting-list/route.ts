@@ -72,7 +72,10 @@ export async function GET(request: Request) {
                             where: { id: conf.id },
                             data: { status: "CONFIRMED" },
                         });
-                        promotedNames.push({ name: conf.user.name, phone: conf.user.phone });
+                        promotedNames.push({
+                            name: conf.user?.name || conf.guestName || "Convidado",
+                            phone: conf.user?.phone || ""
+                        });
                     }
 
                     const result = {

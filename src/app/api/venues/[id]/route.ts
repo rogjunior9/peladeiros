@@ -72,6 +72,7 @@ export async function PUT(
       gameType,
       capacity,
       isActive,
+      googleMapsLink,
     } = body;
 
     const venue = await prisma.venue.update({
@@ -83,10 +84,11 @@ export async function PUT(
         state,
         zipCode,
         phone,
-        pricePerHour: pricePerHour !== undefined ? parseFloat(pricePerHour) : undefined,
+        pricePerHour: (pricePerHour === "" || pricePerHour === null || pricePerHour === undefined) ? null : parseFloat(String(pricePerHour)),
         gameType,
-        capacity,
+        capacity: (capacity && String(capacity).length > 0) ? parseInt(String(capacity)) : undefined,
         isActive,
+        googleMapsLink,
       },
     });
 

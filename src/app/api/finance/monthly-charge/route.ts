@@ -61,7 +61,7 @@ export async function POST(request: Request) {
             });
 
             // Se ja esta pago, pular
-            if (existingPayment?.status === "PAID") {
+            if (existingPayment?.status === "CONFIRMED") {
                 continue;
             }
 

@@ -35,9 +35,10 @@ export async function GET(request: NextRequest) {
 
         const debtors = game.confirmations.filter(c => {
             if (c.status !== 'CONFIRMED') return false;
+            if (!c.user) return false;
             if (c.user.playerType === 'GOALKEEPER') return false;
-            if (c.user.playerType === 'MONTHLY') return false; // Mensalistas pagam mensalidade, nao por jogo (geralmente)
-            if (paidUserIds.has(c.userId)) return false;
+            if (c.user.playerType === 'MONTHLY') return false;
+            if (c.userId && paidUserIds.has(c.userId)) return false;
             return true;
         });
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
         msg += `Os seguintes jogadores ainda não registraram o pagamento:\n\n`;
 
         debtors.forEach((c) => {
-            msg += `• ${c.user.name || 'Anônimo'} (${c.user.phone || 'Sem telefone'})\n`;
+            msg += `• ${c.user?.name || 'Anônimo'} (${c.user?.phone || 'Sem telefone'})\n`;
         });
 
         const settings = await prisma.notificationSettings.findFirst();

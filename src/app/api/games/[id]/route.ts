@@ -134,10 +134,36 @@ export async function DELETE(
       );
     }
 
-    await prisma.game.update({
+    const { searchParams } = new URL(request.url);
+    const deleteSeries = searchParams.get("deleteSeries") === "true";
+    const deleteFuture = searchParams.get("deleteFuture") === "true";
+
+    const game = await prisma.game.findUnique({
       where: { id: params.id },
-      data: { isActive: false },
+      select: { recurrenceId: true, date: true }
     });
+
+    if (!game) {
+      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+    }
+
+    if (deleteSeries && game.recurrenceId) {
+      // Delete multiple
+      await prisma.game.updateMany({
+        where: {
+          recurrenceId: game.recurrenceId,
+          isActive: true,
+          ...(deleteFuture ? { date: { gte: game.date } } : {}) // If deleteFuture, only >= this date. Else all.
+        },
+        data: { isActive: false }
+      });
+    } else {
+      // Delete single
+      await prisma.game.update({
+        where: { id: params.id },
+        data: { isActive: false },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

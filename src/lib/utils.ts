@@ -86,7 +86,7 @@ export function getConfirmationStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     PENDING: "Pendente",
     CONFIRMED: "Confirmado",
-    DECLINED: "Recusado",
+    DECLINED: "Ausente/Não vou",
     WAITING_LIST: "Lista de Espera",
   };
   return labels[status] || status;

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { getPlayerTypeLabel } from "@/lib/utils";
+import { NotificationsPopover } from "@/components/layout/notifications-popover";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -46,10 +47,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <div className="flex items-center space-x-6">
 
-          <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-white/5 rounded-full h-10 w-10 p-0 relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full animate-pulse" />
-          </Button>
+          <NotificationsPopover />
 
           {session?.user?.role === "ADMIN" && (
             <Badge className="hidden sm:inline-flex bg-accent/10 text-accent hover:bg-accent/20 border-accent/20 uppercase tracking-widest font-display text-[10px]">

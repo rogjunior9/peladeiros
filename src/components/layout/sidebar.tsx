@@ -15,7 +15,19 @@ import {
   X,
   Receipt,
   UserCog,
+  User,
+  LogOut,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getPlayerTypeLabel } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
 interface SidebarProps {
   open: boolean;
@@ -29,7 +41,6 @@ const navigation = [
   { name: "Locais", href: "/venues", icon: MapPin, adminOnly: true },
   { name: "Financeiro", href: "/finance", icon: DollarSign },
   { name: "Pagamentos", href: "/payments", icon: Receipt },
-  { name: "Usuários", href: "/users", icon: UserCog, adminOnly: true },
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
@@ -147,18 +158,50 @@ export function Sidebar({ open, setOpen }: SidebarProps) {
           {/* User Info Mini Footer */}
           {session?.user && (
             <div className="p-4 border-t border-white/5 bg-zinc-950/30">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9 border border-zinc-800">
-                  <AvatarImage src={session.user.image || ""} />
-                  <AvatarFallback className="bg-zinc-800 text-zinc-500 font-bold text-xs">
-                    {session.user.name?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="overflow-hidden">
-                  <p className="text-white text-xs font-bold truncate">{session.user.name}</p>
-                  <p className="text-zinc-500 text-[10px] truncate">{session.user.email}</p>
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-3 w-full text-left hover:bg-white/5 p-2 rounded-lg transition-colors outline-none">
+                    <Avatar className="h-9 w-9 border border-zinc-800">
+                      <AvatarImage src={session.user.image || ""} />
+                      <AvatarFallback className="bg-zinc-800 text-zinc-500 font-bold text-xs">
+                        {session.user.name?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="overflow-hidden flex-1">
+                      <p className="text-white text-xs font-bold truncate">{session.user.name}</p>
+                      <p className="text-zinc-500 text-[10px] truncate">{session.user.email}</p>
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-zinc-950 border-zinc-800 text-white mb-2 ml-4">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-bold font-display uppercase tracking-wide text-white">{session?.user?.name}</p>
+                      <p className="text-xs text-zinc-500 truncate">
+                        {session?.user?.email}
+                      </p>
+                      <p className="text-[10px] text-accent font-mono uppercase tracking-widest mt-1">
+                        {getPlayerTypeLabel(session?.user?.playerType || "CASUAL")}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem asChild className="focus:bg-white/5 focus:text-white cursor-pointer">
+                    <Link href="/settings" className="flex items-center">
+                      <User className="mr-2 h-4 w-4 text-zinc-400" />
+                      Meu Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    className="text-red-500 focus:text-red-400 focus:bg-red-950/20 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>

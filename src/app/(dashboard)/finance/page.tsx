@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
+import { formatCurrency, formatDate, getMonthYear, cn } from "@/lib/utils";
 import {
   TrendingUp,
   TrendingDown,
@@ -35,6 +35,7 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 interface Transaction {
@@ -73,7 +74,10 @@ export default function FinancePage() {
     amount: "",
     description: "",
     category: "",
-    date: new Date().toISOString().split("T")[0],
+    date: (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })(),
   });
 
   const isAdmin = session?.user?.role === "ADMIN";
@@ -99,11 +103,9 @@ export default function FinancePage() {
 
   const fetchPaymentsSummary = async () => {
     try {
-      // Get confirmed payments (income)
       const paymentsRes = await fetch("/api/payments?status=CONFIRMED");
       const payments = paymentsRes.ok ? await paymentsRes.json() : [];
 
-      // Get transactions
       const transactionsRes = await fetch("/api/transactions");
       const transactionsData = transactionsRes.ok ? await transactionsRes.json() : [];
 
@@ -138,14 +140,15 @@ export default function FinancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          date: formData.date ? new Date(`${formData.date}T12:00:00`).toISOString() : undefined,
           type: transactionType,
         }),
       });
 
       if (response.ok) {
         toast({
-          title: "Transacao registrada!",
-          variant: "success",
+          title: "Transação registrada!",
+          className: "bg-zinc-900 border-accent/20 text-white",
         });
         fetchTransactions();
         fetchPaymentsSummary();
@@ -154,7 +157,10 @@ export default function FinancePage() {
           amount: "",
           description: "",
           category: "",
-          date: new Date().toISOString().split("T")[0],
+          date: (() => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          })(),
         });
       } else {
         throw new Error("Erro ao registrar");
@@ -162,7 +168,7 @@ export default function FinancePage() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao registrar transacao",
+        description: "Erro ao registrar transação",
         variant: "destructive",
       });
     } finally {
@@ -171,7 +177,7 @@ export default function FinancePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Deseja excluir esta transacao?")) return;
+    if (!confirm("Deseja excluir esta transação?")) return;
 
     try {
       const response = await fetch(`/api/transactions/${id}`, {
@@ -180,8 +186,8 @@ export default function FinancePage() {
 
       if (response.ok) {
         toast({
-          title: "Transacao excluida!",
-          variant: "success",
+          title: "Transação excluída!",
+          className: "bg-zinc-900 border-accent/20 text-white",
         });
         fetchTransactions();
         fetchPaymentsSummary();
@@ -189,7 +195,7 @@ export default function FinancePage() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao excluir transacao",
+        description: "Erro ao excluir transação",
         variant: "destructive",
       });
     }
@@ -197,58 +203,63 @@ export default function FinancePage() {
 
   const expenseCategories = [
     "Aluguel do campo",
-    "Manutencao",
+    "Manutenção",
     "Materiais esportivos",
-    "Agua/Bebidas",
-    "Premiacao",
+    "Água/Bebidas",
+    "Premiação",
     "Outros",
   ];
 
   const incomeCategories = [
     "Mensalidade",
-    "Diaria avulso",
-    "Patrocinio",
+    "Diária avulso",
+    "Patrocínio",
     "Outros",
   ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-green-600">Carregando...</div>
+      <div className="flex items-center justify-center h-screen bg-black">
+        <Loader2 className="h-10 w-10 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex items-end justify-between border-b border-white/5 pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Financeiro</h1>
-          <p className="text-gray-500">Controle de entradas e saidas</p>
+          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Financeiro</h1>
+          <p className="text-zinc-500 mt-1">Controle de caixa, lucros e despesas</p>
         </div>
         {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700">
+              <Button className="bg-accent hover:bg-accent/90 text-black font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(197,160,89,0.2)]">
                 <Plus className="h-4 w-4 mr-2" />
-                Nova Transacao
+                Nova Movimentação
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
               <DialogHeader>
-                <DialogTitle>Nova Transacao</DialogTitle>
-                <DialogDescription>
-                  Registre uma entrada ou saida
+                <DialogTitle className="text-2xl font-display font-bold uppercase text-accent tracking-tighter">Registrar Lançamento</DialogTitle>
+                <DialogDescription className="text-zinc-500">
+                  Registre uma entrada ou saída no caixa do grupo.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-6 pt-4">
                 <div className="space-y-2">
-                  <Label>Tipo</Label>
+                  <Label className="text-zinc-400 uppercase text-[10px] tracking-widest font-bold">Tipo de Operação</Label>
                   <div className="flex space-x-2">
                     <Button
                       type="button"
                       variant={transactionType === "INCOME" ? "default" : "outline"}
-                      className={transactionType === "INCOME" ? "bg-green-600" : ""}
+                      className={cn(
+                        "flex-1 h-12 uppercase tracking-widest font-bold text-xs transition-all",
+                        transactionType === "INCOME"
+                          ? "bg-emerald-500 hover:bg-emerald-600 text-white border-none"
+                          : "border-white/10 text-zinc-500 hover:text-emerald-500"
+                      )}
                       onClick={() => setTransactionType("INCOME")}
                     >
                       <ArrowUpCircle className="h-4 w-4 mr-2" />
@@ -257,17 +268,22 @@ export default function FinancePage() {
                     <Button
                       type="button"
                       variant={transactionType === "EXPENSE" ? "default" : "outline"}
-                      className={transactionType === "EXPENSE" ? "bg-red-600" : ""}
+                      className={cn(
+                        "flex-1 h-12 uppercase tracking-widest font-bold text-xs transition-all",
+                        transactionType === "EXPENSE"
+                          ? "bg-rose-500 hover:bg-rose-600 text-white border-none"
+                          : "border-white/10 text-zinc-500 hover:text-rose-500"
+                      )}
                       onClick={() => setTransactionType("EXPENSE")}
                     >
                       <ArrowDownCircle className="h-4 w-4 mr-2" />
-                      Saida
+                      Saída
                     </Button>
                   </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Valor (R$) *</Label>
+                    <Label className="text-zinc-400 uppercase text-[10px] tracking-widest font-bold">Valor (R$) *</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -275,32 +291,34 @@ export default function FinancePage() {
                       onChange={(e) =>
                         setFormData({ ...formData, amount: e.target.value })
                       }
-                      placeholder="100.00"
+                      placeholder="0.00"
+                      className="bg-zinc-900 border-white/10 text-white h-12 focus:border-accent"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Data *</Label>
+                    <Label className="text-zinc-400 uppercase text-[10px] tracking-widest font-bold">Data *</Label>
                     <Input
                       type="date"
                       value={formData.date}
                       onChange={(e) =>
                         setFormData({ ...formData, date: e.target.value })
                       }
+                      className="bg-zinc-900 border-white/10 text-white h-12 focus:border-accent [color-scheme:dark]"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label className="text-zinc-400 uppercase text-[10px] tracking-widest font-bold">Categoria</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) =>
                       setFormData({ ...formData, category: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white h-12">
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
                       {(transactionType === "EXPENSE"
                         ? expenseCategories
                         : incomeCategories
@@ -313,31 +331,31 @@ export default function FinancePage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Descricao *</Label>
+                  <Label className="text-zinc-400 uppercase text-[10px] tracking-widest font-bold">Descrição *</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    placeholder="Descreva a transacao..."
+                    placeholder="Ex: Aluguel do mês de Janeiro"
                     rows={3}
+                    className="bg-zinc-900 border-white/10 text-white focus:border-accent resize-none p-4"
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <DialogFooter className="pt-6">
+                <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-zinc-500 hover:text-white uppercase tracking-widest text-xs">
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleCreateTransaction}
                   disabled={saving || !formData.amount || !formData.description}
-                  className={
-                    transactionType === "EXPENSE"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-green-600 hover:bg-green-700"
-                  }
+                  className={cn(
+                    "text-black font-bold uppercase tracking-widest min-w-[140px]",
+                    transactionType === "EXPENSE" ? "bg-rose-500 hover:bg-white" : "bg-accent hover:bg-white"
+                  )}
                 >
-                  {saving ? "Salvando..." : "Registrar"}
+                  {saving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Salvar Lançamento"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -347,112 +365,111 @@ export default function FinancePage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total de Entradas</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(summary.totalIncome)}
-                </p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-500" />
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Entradas Totais</CardTitle>
+            <TrendingUp className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-display font-bold text-emerald-400">
+              {formatCurrency(summary.totalIncome)}
             </div>
+            <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Lançamentos + Pagamentos</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total de Saidas</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(summary.totalExpenses)}
-                </p>
-              </div>
-              <TrendingDown className="h-8 w-8 text-red-500" />
+
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Saídas Totais</CardTitle>
+            <TrendingDown className="h-4 w-4 text-rose-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-display font-bold text-rose-400">
+              {formatCurrency(summary.totalExpenses)}
             </div>
+            <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Custo operacional acumulado</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Saldo</p>
-                <p
-                  className={`text-2xl font-bold ${
-                    summary.balance >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {formatCurrency(summary.balance)}
-                </p>
-              </div>
-              <DollarSign
-                className={`h-8 w-8 ${
-                  summary.balance >= 0 ? "text-green-500" : "text-red-500"
-                }`}
-              />
+
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Saldo em Caixa</CardTitle>
+            <DollarSign className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className={cn(
+              "text-3xl font-display font-bold",
+              summary.balance >= 0 ? "text-white" : "text-rose-500"
+            )}>
+              {formatCurrency(summary.balance)}
             </div>
+            <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Patrimônio líquido disponível</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Transactions List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Historico de Transacoes</CardTitle>
-          <CardDescription>
-            Entradas e saidas registradas manualmente
-          </CardDescription>
+      <Card className="bg-zinc-950 border-white/5 overflow-hidden">
+        <CardHeader className="border-b border-white/5 bg-zinc-950/50">
+          <CardTitle className="text-xl font-display font-bold text-white uppercase tracking-tighter">Histórico de Transações</CardTitle>
+          <CardDescription className="text-zinc-500">Listagem detalhada de todos os lançamentos manuais.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">Todas</TabsTrigger>
-              <TabsTrigger value="INCOME">Entradas</TabsTrigger>
-              <TabsTrigger value="EXPENSE">Saidas</TabsTrigger>
-            </TabsList>
+        <CardContent className="p-0">
+          <Tabs defaultValue="all" className="w-full">
+            <div className="px-6 py-4 bg-zinc-950/30 border-b border-white/5">
+              <TabsList className="bg-black border border-white/5">
+                <TabsTrigger value="all" className="uppercase text-[10px] tracking-widest font-bold">Todas</TabsTrigger>
+                <TabsTrigger value="INCOME" className="uppercase text-[10px] tracking-widest font-bold">Entradas</TabsTrigger>
+                <TabsTrigger value="EXPENSE" className="uppercase text-[10px] tracking-widest font-bold">Saídas</TabsTrigger>
+              </TabsList>
+            </div>
 
             {["all", "INCOME", "EXPENSE"].map((tab) => (
-              <TabsContent key={tab} value={tab} className="mt-4">
-                <div className="space-y-4">
+              <TabsContent key={tab} value={tab} className="m-0">
+                <div className="divide-y divide-white/5">
                   {transactions
                     .filter((t) => tab === "all" || t.type === tab)
                     .map((transaction) => (
                       <div
                         key={transaction.id}
-                        className="flex items-center justify-between p-4 rounded-lg border"
+                        className="flex items-center justify-between p-6 hover:bg-white/[0.02] transition-colors group"
                       >
                         <div className="flex items-center space-x-4">
                           <div
-                            className={`p-2 rounded-full ${
+                            className={cn(
+                              "p-3 rounded-xl border transition-all",
                               transaction.type === "INCOME"
-                                ? "bg-green-100"
-                                : "bg-red-100"
-                            }`}
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                : "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                            )}
                           >
                             {transaction.type === "INCOME" ? (
-                              <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                              <ArrowUpCircle className="h-5 w-5" />
                             ) : (
-                              <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                              <ArrowDownCircle className="h-5 w-5" />
                             )}
                           </div>
                           <div>
-                            <p className="font-medium">{transaction.description}</p>
-                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                            <p className="font-bold text-white text-lg group-hover:text-accent transition-colors">{transaction.description}</p>
+                            <div className="flex items-center space-x-3 text-xs text-zinc-500 mt-0.5">
                               {transaction.category && (
-                                <Badge variant="outline">{transaction.category}</Badge>
+                                <Badge variant="outline" className="border-white/10 text-zinc-500 uppercase text-[10px] font-bold tracking-widest px-2">{transaction.category}</Badge>
                               )}
-                              <span>{formatDate(transaction.date)}</span>
+                              <span className="text-zinc-700">|</span>
+                              <span className="uppercase tracking-widest">{formatDate(transaction.date)}</span>
+                              <span className="text-zinc-700">|</span>
+                              <span className="text-[10px]">Por: {transaction.createdBy?.name}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-8">
                           <p
-                            className={`font-bold text-lg ${
+                            className={cn(
+                              "font-mono font-bold text-xl",
                               transaction.type === "INCOME"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
+                                ? "text-emerald-400"
+                                : "text-rose-400"
+                            )}
                           >
                             {transaction.type === "INCOME" ? "+" : "-"}
                             {formatCurrency(transaction.amount)}
@@ -461,7 +478,7 @@ export default function FinancePage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-red-500"
+                              className="h-8 w-8 text-zinc-600 hover:text-rose-500 transition-colors"
                               onClick={() => handleDelete(transaction.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -473,10 +490,11 @@ export default function FinancePage() {
 
                   {transactions.filter((t) => tab === "all" || t.type === tab)
                     .length === 0 && (
-                    <p className="text-center text-gray-500 py-8">
-                      Nenhuma transacao encontrada
-                    </p>
-                  )}
+                      <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+                        <TrendingUp className="h-10 w-10 opacity-10 mb-4" />
+                        <p className="uppercase tracking-[0.2em] font-light italic">Nenhuma transação encontrada</p>
+                      </div>
+                    )}
                 </div>
               </TabsContent>
             ))}

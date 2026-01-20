@@ -52,8 +52,13 @@ export default function GamesPage() {
     }
   };
 
-  const upcomingGames = games.filter((g) => new Date(g.date) >= new Date());
-  const pastGames = games.filter((g) => new Date(g.date) < new Date());
+  const upcomingGames = games
+    .filter((g) => new Date(g.date) >= new Date(new Date().setHours(0, 0, 0, 0)))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const pastGames = games
+    .filter((g) => new Date(g.date) < new Date(new Date().setHours(0, 0, 0, 0)))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (loading) {
     return (

@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
 
         // Separar Linha e Goleiro
         const confirmed = game.confirmations.filter(c => c.status === 'CONFIRMED');
-        const linha = confirmed.filter(c => c.user.playerType !== 'GOALKEEPER');
-        const goleiros = confirmed.filter(c => c.user.playerType === 'GOALKEEPER');
+        const linha = confirmed.filter(c => c.user && c.user.playerType !== 'GOALKEEPER');
+        const goleiros = confirmed.filter(c => c.user && c.user.playerType === 'GOALKEEPER');
         const espera = game.confirmations.filter(c => c.status === 'WAITING_LIST');
 
         // Mapear pagamentos para acesso rapido: userId -> bool
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         for (let i = 0; i < 24; i++) {
             if (i < linha.length) {
                 const c = linha[i];
-                const isPaid = paidUsers.has(c.userId);
+                const isPaid = c.userId ? paidUsers.has(c.userId) : false;
                 const check = isPaid ? ' ✅' : '';
                 // Se for mensalista, as vezes não tem pagamento LINKADO ao jogo, mas tem mensalidade.
                 // Vou marcar mensalistas como pagos? Não, melhor deixar sem check se nao tiver pagamento linkado.
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
                 // Mas o user pediu "quem nao pagou".
                 // Vou deixar o check apenas se tiver Payment linkado ao game.
 
-                msg += `${i + 1}- ${c.user.name || c.guestName || 'Anônimo'}${check}\n`;
+                msg += `${i + 1}- ${c.user?.name || c.guestName || 'Anônimo'}${check}\n`;
             } else {
                 msg += `${i + 1}-\n`;
             }
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         for (let i = 0; i < 4; i++) {
             if (i < goleiros.length) {
                 const c = goleiros[i];
-                msg += `${i + 1}- ${c.user.name || c.guestName || 'Goleiro'}\n`;
+                msg += `${i + 1}- ${c.user?.name || c.guestName || 'Goleiro'}\n`;
             } else {
                 msg += `${i + 1}-\n`;
             }
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         if (espera.length > 0) {
             msg += `\nLista de espera (avulsos)\n`;
             espera.forEach((c, i) => {
-                msg += `${i + 1}- ${c.user.name || c.guestName}\n`;
+                msg += `${i + 1}- ${c.user?.name || c.guestName || 'Anônimo'}\n`;
             });
         }
 

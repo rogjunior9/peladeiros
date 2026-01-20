@@ -45,6 +45,7 @@ export default function NewGamePage() {
     priceGoalkeeper: "0",
     billingType: "SINGLE",
     venueId: "",
+    isRecurring: false,
   });
 
   useEffect(() => {
@@ -138,6 +139,21 @@ export default function NewGamePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+
+            <div className="bg-zinc-900/50 p-4 rounded-lg flex items-center space-x-3 border border-white/5">
+              <input
+                type="checkbox"
+                id="isRecurring"
+                checked={formData.isRecurring}
+                onChange={(e) => handleChange("isRecurring", e.target.checked as any)}
+                className="h-5 w-5 bg-zinc-950 border-zinc-700 rounded accent-accent cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <Label htmlFor="isRecurring" className="text-white cursor-pointer font-bold">Repetir semanalmente?</Label>
+                <span className="text-xs text-zinc-500">Se marcado, criará jogos automaticamente para as próximas 26 semanas (6 meses), sempre no mesmo dia e horário.</span>
+              </div>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="title">Titulo *</Label>

@@ -34,11 +34,11 @@ export async function GET(
             },
           },
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 50,
         },
         payments: {
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 50,
         },
       },
     });
@@ -84,17 +84,17 @@ export async function PUT(
 
     const updateData: any = {};
 
-    // User can update their own name and phone
+    // User can update their own name, phone, document, and playerType
     if (params.id === session.user.id || session.user.role === "ADMIN") {
       if (name) updateData.name = name;
       if (phone !== undefined) updateData.phone = phone;
       if (document !== undefined) updateData.document = document;
+      if (playerType !== undefined) updateData.playerType = playerType;
     }
 
     // Only admin can update these fields
     if (session.user.role === "ADMIN") {
       if (role) updateData.role = role;
-      if (playerType) updateData.playerType = playerType;
       if (isActive !== undefined) updateData.isActive = isActive;
     }
 
