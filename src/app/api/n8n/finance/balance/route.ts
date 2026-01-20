@@ -35,9 +35,7 @@ export async function GET() {
         const balance = totalRevenue - totalExpenses;
 
         const msg = `*💰 Caixa da Pelada*\n\n` +
-            `*Entradas:* ${formatCurrency(totalRevenue)}\n` +
-            `*Saídas:* ${formatCurrency(totalExpenses)}\n` +
-            `----------------\n` +
+
             `*Saldo:* ${formatCurrency(balance)}`;
 
         return NextResponse.json({ message: msg, balance });
