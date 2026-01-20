@@ -308,7 +308,7 @@ export default function SettingsPage() {
 
             <div className="flex justify-end pt-4">
               <Button
-                className="bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-wider"
+                className="bg-accent text-black hover:bg-white font-bold uppercase tracking-widest px-8 h-12"
                 onClick={handleSaveSettings}
                 disabled={savingSettings || loadingSettings}
               >
@@ -346,7 +346,7 @@ export default function SettingsPage() {
                     {getPlayerTypeLabel(session?.user?.playerType || "CASUAL")}
                   </Badge>
                   {session?.user?.role === "ADMIN" && (
-                    <Badge className="bg-accent text-black border-none uppercase text-[10px] font-bold tracking-wider">Admin</Badge>
+                    <Badge className="bg-accent text-black hover:bg-white border-none uppercase text-[10px] font-bold tracking-wider">Admin</Badge>
                   )}
                 </div>
               </div>
