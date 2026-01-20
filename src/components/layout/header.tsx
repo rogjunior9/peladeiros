@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { Menu, LogOut, User } from "lucide-react";
+import { Menu, LogOut, User, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -33,61 +33,67 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/5">
+      <div className="flex items-center justify-between h-20 px-4 sm:px-6 lg:px-8">
         <button
           onClick={onMenuClick}
-          className="text-gray-500 hover:text-gray-700 lg:hidden"
+          className="text-zinc-400 hover:text-white lg:hidden transition-colors"
         >
           <Menu className="h-6 w-6" />
         </button>
 
         <div className="flex-1 lg:flex-none" />
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-6">
+
+          <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-white/5 rounded-full h-10 w-10 p-0 relative">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full animate-pulse" />
+          </Button>
+
           {session?.user?.role === "ADMIN" && (
-            <Badge variant="success" className="hidden sm:inline-flex">
+            <Badge className="hidden sm:inline-flex bg-accent/10 text-accent hover:bg-accent/20 border-accent/20 uppercase tracking-widest font-display text-[10px]">
               Administrador
             </Badge>
           )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-white/10 hover:border-accent/50 transition-colors">
                 <Avatar>
                   <AvatarImage
                     src={session?.user?.image || ""}
                     alt={session?.user?.name || ""}
                   />
-                  <AvatarFallback className="bg-green-100 text-green-700">
+                  <AvatarFallback className="bg-zinc-900 text-zinc-400 font-bold">
                     {getInitials(session?.user?.name)}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 bg-zinc-950 border-zinc-800 text-white">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{session?.user?.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-bold font-display uppercase tracking-wide text-white">{session?.user?.name}</p>
+                  <p className="text-xs text-zinc-500 truncate">
                     {session?.user?.email}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-accent font-mono uppercase tracking-widest mt-1">
                     {getPlayerTypeLabel(session?.user?.playerType || "CASUAL")}
                   </p>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <a href="/settings" className="flex items-center cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem asChild className="focus:bg-white/5 focus:text-white cursor-pointer">
+                <a href="/settings" className="flex items-center">
+                  <User className="mr-2 h-4 w-4 text-zinc-400" />
                   Meu Perfil
                 </a>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="text-red-600 focus:text-red-600 cursor-pointer"
+                className="text-red-500 focus:text-red-400 focus:bg-red-950/20 cursor-pointer"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair

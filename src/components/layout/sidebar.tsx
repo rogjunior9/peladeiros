@@ -28,8 +28,8 @@ const navigation = [
   { name: "Locais", href: "/venues", icon: MapPin, adminOnly: true },
   { name: "Financeiro", href: "/finance", icon: DollarSign },
   { name: "Pagamentos", href: "/payments", icon: Receipt },
-  { name: "Usuarios", href: "/users", icon: UserCog, adminOnly: true },
-  { name: "Configuracoes", href: "/settings", icon: Settings },
+  { name: "Usuários", href: "/users", icon: UserCog, adminOnly: true },
+  { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({ open, setOpen }: SidebarProps) {
@@ -46,7 +46,7 @@ export function Sidebar({ open, setOpen }: SidebarProps) {
       {/* Mobile sidebar overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -54,86 +54,109 @@ export function Sidebar({ open, setOpen }: SidebarProps) {
       {/* Mobile sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-black border-r border-white/10 transform transition-transform duration-300 ease-in-out lg:hidden",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b">
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
+        <div className="flex items-center justify-between h-16 px-6 border-b border-white/5">
+          <div className="flex items-center space-x-3">
+            <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center shadow-[0_0_10px_rgba(197,160,89,0.3)]">
+              <span className="text-black font-display font-bold text-lg">P</span>
             </div>
-            <span className="text-lg font-semibold text-gray-900">Peladeiros</span>
+            <span className="text-xl font-display font-bold text-white uppercase tracking-wider">Peladeiros</span>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-zinc-500 hover:text-white transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
-        <nav className="mt-4 px-2 space-y-1">
-          {filteredNavigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                pathname === item.href || pathname.startsWith(item.href + "/")
-                  ? "bg-green-50 text-green-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}
-            >
-              <item.icon
+        <nav className="mt-8 px-4 space-y-2">
+          {filteredNavigation.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setOpen(false)}
                 className={cn(
-                  "mr-3 h-5 w-5",
-                  pathname === item.href || pathname.startsWith(item.href + "/")
-                    ? "text-green-600"
-                    : "text-gray-400"
+                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group relative overflow-hidden",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-zinc-400 hover:bg-white/5 hover:text-white"
                 )}
-              />
-              {item.name}
-            </Link>
-          ))}
+              >
+                {isActive && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
+                )}
+                <item.icon
+                  className={cn(
+                    "mr-3 h-5 w-5 transition-colors",
+                    isActive ? "text-accent" : "text-zinc-500 group-hover:text-white"
+                  )}
+                />
+                <span className="font-display uppercase tracking-wide">{item.name}</span>
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-1 min-h-0 bg-white border-r">
-          <div className="flex items-center h-16 px-4 border-b">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">P</span>
+        <div className="flex flex-col flex-1 min-h-0 bg-black border-r border-white/10">
+          <div className="flex items-center h-20 px-6 border-b border-white/5">
+            <div className="flex items-center space-x-3">
+              <div className="h-9 w-9 rounded-full bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(197,160,89,0.4)]">
+                <span className="text-black font-display font-bold text-xl">P</span>
               </div>
-              <span className="text-lg font-semibold text-gray-900">Peladeiros</span>
+              <span className="text-xl font-display font-bold text-white uppercase tracking-wider">Peladeiros</span>
             </div>
           </div>
-          <nav className="flex-1 mt-4 px-2 space-y-1 overflow-y-auto">
-            {filteredNavigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                  pathname === item.href || pathname.startsWith(item.href + "/")
-                    ? "bg-green-50 text-green-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <item.icon
+          <nav className="flex-1 mt-8 px-4 space-y-2 overflow-y-auto">
+            {filteredNavigation.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
                   className={cn(
-                    "mr-3 h-5 w-5",
-                    pathname === item.href || pathname.startsWith(item.href + "/")
-                      ? "text-green-600"
-                      : "text-gray-400"
+                    "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group relative overflow-hidden",
+                    isActive
+                      ? "bg-accent/10 text-accent"
+                      : "text-zinc-400 hover:bg-white/5 hover:text-white"
                   )}
-                />
-                {item.name}
-              </Link>
-            ))}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />
+                  )}
+                  <item.icon
+                    className={cn(
+                      "mr-3 h-5 w-5 transition-colors",
+                      isActive ? "text-accent" : "text-zinc-500 group-hover:text-white"
+                    )}
+                  />
+                  <span className="font-display uppercase tracking-wide">{item.name}</span>
+                </Link>
+              );
+            })}
           </nav>
+
+          {/* User Info Mini Footer */}
+          {session?.user && (
+            <div className="p-4 border-t border-white/5 bg-zinc-950/30">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold text-xs border border-white/10">
+                  {session.user.name?.[0]}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-white text-xs font-bold truncate">{session.user.name}</p>
+                  <p className="text-zinc-500 text-[10px] truncate">{session.user.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
