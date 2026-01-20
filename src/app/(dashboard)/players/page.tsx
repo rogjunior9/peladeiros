@@ -25,7 +25,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { getPlayerTypeLabel } from "@/lib/utils";
-import { Search, Users, Edit } from "lucide-react";
+import { Search, Users, Edit, UserCog, Shield, Loader2 } from "lucide-react";
 
 interface Player {
   id: string;
@@ -92,7 +92,7 @@ export default function PlayersPage() {
       if (response.ok) {
         toast({
           title: "Jogador atualizado!",
-          variant: "success",
+          className: "bg-zinc-900 border-accent/20 text-white",
         });
         fetchPlayers();
         setEditingPlayer(null);
@@ -128,135 +128,136 @@ export default function PlayersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-green-600">Carregando...</div>
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-10 w-10 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Jogadores</h1>
-        <p className="text-gray-500">Gerencie os jogadores da pelada</p>
+    <div className="space-y-8 pb-10">
+      <div className="flex items-end justify-between border-b border-white/5 pb-6">
+        <div>
+          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Jogadores</h1>
+          <p className="text-zinc-500 mt-1">Gerencie o elenco da pelada</p>
+        </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Total</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Total</p>
+                <p className="text-3xl font-display font-bold text-white">{stats.total}</p>
               </div>
-              <Users className="h-8 w-8 text-gray-400" />
+              <Users className="h-8 w-8 text-zinc-800" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Mensalistas</p>
-                <p className="text-2xl font-bold text-green-600">{stats.monthly}</p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Mensalistas</p>
+                <p className="text-3xl font-display font-bold text-accent">{stats.monthly}</p>
               </div>
-              <Badge variant="success">MONTHLY</Badge>
+              <Badge className="bg-accent/10 text-accent border-accent/20 uppercase tracking-wider text-[10px]">Mensal</Badge>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Avulsos</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.casual}</p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Avulsos</p>
+                <p className="text-3xl font-display font-bold text-blue-400">{stats.casual}</p>
               </div>
-              <Badge variant="info">CASUAL</Badge>
+              <Badge className="bg-blue-900/20 text-blue-400 border-blue-900/30 uppercase tracking-wider text-[10px]">Casual</Badge>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Goleiros</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.goalkeeper}</p>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Goleiros</p>
+                <p className="text-3xl font-display font-bold text-yellow-500">{stats.goalkeeper}</p>
               </div>
-              <Badge variant="warning">GOALKEEPER</Badge>
+              <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-900/30 uppercase tracking-wider text-[10px]">Gol</Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar jogadores..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="MONTHLY">Mensalistas</SelectItem>
-                <SelectItem value="CASUAL">Avulsos</SelectItem>
-                <SelectItem value="GOALKEEPER">Goleiros</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Input
+            placeholder="Buscar por nome ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 bg-zinc-950 border-white/10 text-white placeholder:text-zinc-600 focus:border-accent"
+          />
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-full md:w-48 bg-zinc-950 border-white/10 text-white">
+            <SelectValue placeholder="Filtrar por tipo" />
+          </SelectTrigger>
+          <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="MONTHLY">Mensalistas</SelectItem>
+            <SelectItem value="CASUAL">Avulsos</SelectItem>
+            <SelectItem value="GOALKEEPER">Goleiros</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Players List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Jogadores ({filteredPlayers.length})</CardTitle>
+      <Card className="bg-zinc-950 border border-white/5">
+        <CardHeader className="border-b border-white/5 pb-4">
+          <CardTitle className="text-lg font-display font-bold text-white uppercase tracking-wide">
+            Lista de Jogadores <span className="text-zinc-500 ml-2">({filteredPlayers.length})</span>
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="divide-y divide-white/5">
             {filteredPlayers.map((player) => (
               <div
                 key={player.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-white"
+                className="flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors rounded-lg -mx-2 my-1"
               >
                 <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
+                  <Avatar className="h-12 w-12 border border-zinc-800">
                     <AvatarImage src={player.image} />
-                    <AvatarFallback>
+                    <AvatarFallback className="bg-zinc-900 text-zinc-500 font-bold">
                       {player.name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <p className="font-medium">{player.name || "Sem nome"}</p>
+                      <p className="font-bold text-white">{player.name || "Sem nome"}</p>
                       {player.role === "ADMIN" && (
-                        <Badge variant="success" className="text-xs">
+                        <Badge variant="outline" className="border-accent/30 text-accent text-[10px] uppercase font-bold px-1.5 py-0 h-5">
                           Admin
                         </Badge>
                       )}
                       {!player.isActive && (
-                        <Badge variant="destructive" className="text-xs">
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
                           Inativo
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500">{player.email}</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant="outline">
+                    <p className="text-sm text-zinc-500">{player.email}</p>
+                    <div className="flex items-center space-x-3 mt-1.5">
+                      <Badge variant="outline" className="border-white/10 text-zinc-400 text-[10px] uppercase tracking-wider font-normal">
                         {getPlayerTypeLabel(player.playerType)}
                       </Badge>
-                      <span className="text-xs text-gray-400">
-                        {player._count.confirmations} participacoes
+                      <span className="text-xs text-zinc-600 flex items-center">
+                        <Users className="h-3 w-3 mr-1" />
+                        {player._count.confirmations} jogos
                       </span>
                     </div>
                   </div>
@@ -266,6 +267,7 @@ export default function PlayersPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setEditingPlayer(player)}
+                    className="text-zinc-600 hover:text-white hover:bg-white/10"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -274,7 +276,7 @@ export default function PlayersPage() {
             ))}
 
             {filteredPlayers.length === 0 && (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-zinc-600 py-12 italic uppercase text-sm tracking-widest">
                 Nenhum jogador encontrado
               </p>
             )}
@@ -282,71 +284,76 @@ export default function PlayersPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
+      {/* Edit Dialog - Styled Dark */}
       <Dialog open={!!editingPlayer} onOpenChange={() => setEditingPlayer(null)}>
-        <DialogContent>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar Jogador</DialogTitle>
-            <DialogDescription>
-              Atualize as informacoes do jogador
+            <DialogTitle className="font-display font-bold text-xl uppercase tracking-wide">Editar Jogador</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              Atualize as informações do perfil
             </DialogDescription>
           </DialogHeader>
           {editingPlayer && (
-            <div className="space-y-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Nome</Label>
+                <Label className="text-zinc-400">Nome</Label>
                 <Input
                   value={editingPlayer.name || ""}
                   onChange={(e) =>
                     setEditingPlayer({ ...editingPlayer, name: e.target.value })
                   }
+                  className="bg-zinc-900 border-white/10 text-white focus:border-accent"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Telefone</Label>
+                <Label className="text-zinc-400">Telefone</Label>
                 <Input
                   value={editingPlayer.phone || ""}
                   onChange={(e) =>
                     setEditingPlayer({ ...editingPlayer, phone: e.target.value })
                   }
+                  className="bg-zinc-900 border-white/10 text-white focus:border-accent"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Tipo de Jogador</Label>
-                <Select
-                  value={editingPlayer.playerType}
-                  onValueChange={(value) =>
-                    setEditingPlayer({ ...editingPlayer, playerType: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MONTHLY">Mensalista</SelectItem>
-                    <SelectItem value="CASUAL">Avulso</SelectItem>
-                    <SelectItem value="GOALKEEPER">Goleiro</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Tipo de Jogador</Label>
+                  <Select
+                    value={editingPlayer.playerType}
+                    onValueChange={(value) =>
+                      setEditingPlayer({ ...editingPlayer, playerType: value })
+                    }
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
+                      <SelectItem value="MONTHLY">Mensalista</SelectItem>
+                      <SelectItem value="CASUAL">Avulso</SelectItem>
+                      <SelectItem value="GOALKEEPER">Goleiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Função</Label>
+                  <Select
+                    value={editingPlayer.role}
+                    onValueChange={(value) =>
+                      setEditingPlayer({ ...editingPlayer, role: value })
+                    }
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
+                      <SelectItem value="PLAYER">Jogador</SelectItem>
+                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Funcao</Label>
-                <Select
-                  value={editingPlayer.role}
-                  onValueChange={(value) =>
-                    setEditingPlayer({ ...editingPlayer, role: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PLAYER">Jogador</SelectItem>
-                    <SelectItem value="ADMIN">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
+
+              <div className="flex items-center space-x-3 pt-2">
                 <input
                   type="checkbox"
                   id="isActive"
@@ -357,22 +364,22 @@ export default function PlayersPage() {
                       isActive: e.target.checked,
                     })
                   }
-                  className="h-4 w-4"
+                  className="h-4 w-4 bg-zinc-900 border-zinc-700 rounded accent-accent"
                 />
-                <Label htmlFor="isActive">Ativo</Label>
+                <Label htmlFor="isActive" className="text-white cursor-pointer select-none">Usuário Ativo</Label>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingPlayer(null)}>
+            <Button variant="outline" onClick={() => setEditingPlayer(null)} className="border-white/10 text-zinc-400 hover:text-white hover:bg-white/5">
               Cancelar
             </Button>
             <Button
               onClick={handleUpdatePlayer}
               disabled={saving}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-accent text-black hover:bg-white font-bold"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
