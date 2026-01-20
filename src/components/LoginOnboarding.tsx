@@ -24,13 +24,28 @@ export function LoginOnboarding() {
         neighborhood: "", // Used only for WhatsApp message
     });
 
+    const [systemSettings, setSystemSettings] = useState<any>(null);
+
     useEffect(() => {
         // Open if user is logged in but has no phone set up (proxy for first login/incomplete profile)
         if (session?.user && !session.user.phone) {
             setFormData(prev => ({ ...prev, name: session.user.name || "" }));
             setOpen(true);
+            fetchSettings();
         }
     }, [session]);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch("/api/settings");
+            if (res.ok) {
+                const data = await res.json();
+                setSystemSettings(data);
+            }
+        } catch (e) {
+            console.error("Erro ao carregar configurações", e);
+        }
+    };
 
     const maskPhone = (value: string) => {
         return value
@@ -121,7 +136,7 @@ export function LoginOnboarding() {
                                     {
                                         id: "MONTHLY",
                                         label: "Mensalista",
-                                        price: "R$ 60,00", // Estimativa baseada no settings default
+                                        price: systemSettings?.monthlyFee ? `R$ ${systemSettings.monthlyFee.toFixed(2).replace(".", ",")}` : "R$ 60,00",
                                         desc: "Valor fixo mensal. Garante vaga (sujeito a confirmação).",
                                         icon: Shield
                                     },

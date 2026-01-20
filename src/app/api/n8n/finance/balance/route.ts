@@ -7,31 +7,26 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     try {
         // Calcular saldo total (Receitas - Despesas)
-        // Precisamos somar Transactions ou Payments?
-        // Payments são Revenues. mas temos Transactions que podem ser Expenses.
-        // O ideal é usar table Transaction se estiver sendo populada.
-        // Se Transaction não estiver populada com Payments automaticamente, temos um problema.
-        // Atualmente o sistema só cria Payments. Não cria Transactions automaticamente (falta esse link no backend).
-        // Mas o MVP financeiro implementado antes exibia "Saldo da Pelada" baseado em (Confirmed * Price) - (Custo). Isso é estimativa.
 
-        // Caixa real = Soma de Payments CONFIRMED - Soma de Despesas (Se houver tabela de despesas).
-        // Tabela Transaction tem `type` (INCOME, EXPENSE).
-
-        // Vamos somar Payments Confirmed como Receita Real.
+        // 1. Receitas de Pagamentos Individuais (CONFIRMED)
         const paymentsAggregate = await prisma.payment.aggregate({
             where: { status: 'CONFIRMED' },
             _sum: { amount: true }
         });
+        const totalPayments = paymentsAggregate._sum.amount || 0;
 
-        const totalRevenue = paymentsAggregate._sum.amount || 0;
+        // 2. Receitas Manuais (Transactions INCOME)
+        const manualIncomeAggregate = await prisma.transaction.aggregate({
+            where: { type: 'INCOME' },
+            _sum: { amount: true }
+        });
+        const totalManualIncome = manualIncomeAggregate._sum.amount || 0;
 
-        // Despesas (Transactions do tipo EXPENSE com status APPROVED)
-        // Se Transaction tiver status. (Adicionado recentemente).
+        const totalRevenue = totalPayments + totalManualIncome;
+
+        // 3. Despesas (Transactions EXPENSE)
         const expensesAggregate = await prisma.transaction.aggregate({
-            where: {
-                type: 'EXPENSE',
-                status: 'APPROVED'
-            },
+            where: { type: 'EXPENSE' },
             _sum: { amount: true }
         });
 
