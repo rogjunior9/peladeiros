@@ -1,10 +1,9 @@
 const fetch = require('node-fetch');
-const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
-const N8N_WEBHOOK_URL = (process.env.N8N_WEBHOOK_URL || '').replace(/\/+$/, '');
-const N8N_API_KEY = process.env.N8N_API_KEY || '';
+const N8N_WEBHOOK_URL = (process.env.N8N_WEBHOOK_URL || '').replace(/\/+$|\/+$/g, '');
+const N8N_API_KEY = (process.env.N8N_API_KEY || '').replace(/^"|"$/g, '');
 const WORKFLOW_ID = process.env.N8N_WORKFLOW_ID;
 
 if (!N8N_WEBHOOK_URL || !WORKFLOW_ID) {
@@ -19,22 +18,24 @@ async function getWorkflow() {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${N8N_API_KEY}`,
+            'X-N8N-API-KEY': N8N_API_KEY,
         },
     });
     if (!res.ok) {
         throw new Error(`Failed to fetch workflow: ${res.status}`);
     }
-    const data = await res.json();
-    return data;
+    return await res.json();
 }
 
 function addSwitchNode(workflow) {
-    const webhookNode = Object.values(workflow.nodes).find((n) => n.type === 'n8n-nodes-base.webhook');
+    // Find the webhook node in the workflow
+    const webhookNode = workflow.nodes.find((n) => n.type === 'n8n-nodes-base.webhook');
     if (!webhookNode) {
         console.warn('Webhook node not found – skipping switch insertion');
         return workflow;
     }
 
+    // Define the Switch node that routes by payload.type
     const switchNode = {
         name: 'Route by type',
         type: 'n8n-nodes-base.switch',
@@ -53,34 +54,64 @@ function addSwitchNode(workflow) {
         continueOnFail: false,
     };
 
-    // Connect webhook -> switch
-    webhookNode.wires = [[switchNode.name]];
     // Add the new node to the workflow
     workflow.nodes.push(switchNode);
+
+    // Ensure connections object exists and connect webhook -> switch (main output)
+    // n8n expects main to be an array of arrays: [[{node, type, index}]]
+    workflow.connections = workflow.connections || {};
+    workflow.connections[webhookNode.name] = workflow.connections[webhookNode.name] || {};
+    workflow.connections[webhookNode.name].main = [
+        [{ node: switchNode.name, type: 'main', index: 0 }]
+    ];
 
     // NOTE: you still need to manually connect the switch outputs to downstream nodes.
     return workflow;
 }
 
 async function updateWorkflow(updated) {
+    // Keep only editable settings fields (if any)
+    const allowedSettings = [
+        'saveDataErrorExecution',
+        'saveDataSuccessExecution',
+        'saveDataErrorWorkflow',
+        'saveDataSuccessWorkflow',
+        'errorWorkflow',
+        'errorWorkflowExecution',
+        'executionOrder',
+    ];
+    const cleanSettings = {};
+    if (updated.settings && typeof updated.settings === 'object') {
+        for (const key of allowedSettings) {
+            if (key in updated.settings) cleanSettings[key] = updated.settings[key];
+        }
+    }
+
+    const payload = {
+        name: updated.name,
+        nodes: updated.nodes,
+        connections: updated.connections,
+        settings: cleanSettings,
+    };
     const res = await fetch(`${apiBase}/workflows/${WORKFLOW_ID}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${N8N_API_KEY}`,
+            'X-N8N-API-KEY': N8N_API_KEY,
         },
-        body: JSON.stringify(updated),
+        body: JSON.stringify(payload),
     });
     if (!res.ok) {
         const txt = await res.text();
         throw new Error(`Failed to update workflow: ${res.status} – ${txt}`);
     }
-    console.log('Workflow updated successfully');
 }
 
 (async () => {
     try {
         const wf = await getWorkflow();
+        console.log('Fetched workflow (first 200 chars):', JSON.stringify(wf).substring(0, 200));
         const modified = addSwitchNode(wf);
         await updateWorkflow(modified);
     } catch (e) {

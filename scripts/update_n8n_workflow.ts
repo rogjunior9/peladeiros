@@ -1,9 +1,9 @@
-import fetch from 'node-fetch';
+const fetch = require('node-fetch');
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Load env variables (expects .env at project root)
-require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '..', '.env') });
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL?.replace(/\/+$/, '');
 const N8N_API_KEY = process.env.N8N_API_KEY || '';
