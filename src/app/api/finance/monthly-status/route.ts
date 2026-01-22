@@ -12,7 +12,10 @@ export async function GET(request: Request) {
     }
 
     try {
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const { searchParams } = new URL(request.url);
+        const queryMonth = searchParams.get('month');
+        const currentMonth = queryMonth || new Date().toISOString().slice(0, 7); // YYYY-MM
+
 
         const users = await prisma.user.findMany({
             where: { isActive: true },

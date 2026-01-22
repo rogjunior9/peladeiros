@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, RefreshCw, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 interface UserStatus {
     id: string;
@@ -40,18 +41,19 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
     const [users, setUsers] = useState<UserStatus[]>([]);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const { toast } = useToast();
 
     useEffect(() => {
         if (open) {
             loadData();
         }
-    }, [open]);
+    }, [open, selectedMonth]);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/finance/monthly-status");
+            const res = await fetch(`/api/finance/monthly-status?month=${selectedMonth}`);
             if (res.ok) {
                 setUsers(await res.json());
             }
@@ -125,13 +127,26 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col bg-slate-900 border-slate-800 text-slate-100">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl flex items-center gap-2">
-                        <RefreshCw className="h-6 w-6 text-emerald-500" />
-                        Gestão de Mensalidades
-                    </DialogTitle>
-                    <DialogDescription className="text-slate-400">
-                        Gerencie quem paga mensalidade e acompanhe o status deste mês.
-                    </DialogDescription>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="text-2xl flex items-center gap-2">
+                                <RefreshCw className="h-6 w-6 text-emerald-500" />
+                                Gestão de Mensalidades
+                            </DialogTitle>
+                            <DialogDescription className="text-slate-400 mt-1">
+                                Gerencie quem paga mensalidade e acompanhe o status.
+                            </DialogDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-400">Mês:</span>
+                            <Input
+                                type="month"
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="w-40 bg-slate-950 border-slate-700 text-slate-200"
+                            />
+                        </div>
+                    </div>
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto min-h-[300px] border rounded-md border-slate-800">
