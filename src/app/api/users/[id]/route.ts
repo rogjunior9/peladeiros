@@ -30,7 +30,7 @@ export async function GET(
         confirmations: {
           include: {
             game: {
-              select: { title: true, date: true },
+              select: { id: true, title: true, date: true, pricePerPlayer: true },
             },
           },
           orderBy: { createdAt: "desc" },

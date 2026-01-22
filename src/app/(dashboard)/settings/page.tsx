@@ -164,6 +164,7 @@ export default function SettingsPage() {
 
       if (response.ok) {
         toast({ title: "Configurações salvas!", className: "bg-zinc-900 border-accent/20 text-white" });
+        fetchSystemSettings();
       } else {
         throw new Error("Erro ao salvar");
       }

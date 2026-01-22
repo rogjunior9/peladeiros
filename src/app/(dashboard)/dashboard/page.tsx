@@ -139,7 +139,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-3xl font-display font-bold text-white">{data?.totalPlayers || 0}</div>
             <p className="text-xs text-zinc-500 mt-1">
-              <span className="text-zinc-300">{data?.monthlyPlayers || 0}</span> mensalistas • <span className="text-zinc-300">{data?.casualPlayers || 0}</span> avulsos
+              <span className="text-zinc-300">{data?.monthlyPlayers || 0}</span> mensalistas • <span className="text-zinc-300">{data?.casualPlayers || 0}</span> avulsos • <span className="text-zinc-300">{data?.goalkeepers || 0}</span> goleiros
             </p>
           </CardContent>
         </Card>
@@ -339,6 +339,6 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

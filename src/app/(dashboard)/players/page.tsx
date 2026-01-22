@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,7 @@ interface UserDetail extends Player {
       id: string;
       title: string;
       date: string;
+      pricePerPlayer: number;
     };
   }[];
   payments: {
@@ -131,6 +133,51 @@ export default function PlayersPage() {
       setPlayerDetails(null);
     }
   }, [viewingPlayerId]);
+
+  const handleManualPayment = async (gameId: string, amount: number) => {
+    if (!permissionAdmin || !viewingPlayerId || !playerDetails) return;
+
+    setLoadingDetails(true);
+    try {
+      const existing = playerDetails.payments.find((p) => p.gameId === gameId);
+
+      let url = "/api/payments";
+      let method = "POST";
+      let body: any = {
+        amount: amount,
+        method: "CASH",
+        userId: viewingPlayerId,
+        gameId: gameId,
+        status: "CONFIRMED",
+        notes: "Pagamento manual registrado pelo Admin"
+      };
+
+      if (existing) {
+        url = `/api/payments/${existing.id}`;
+        method = "PUT";
+        body = { status: "CONFIRMED", notes: body.notes };
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        toast({ title: "Pagamento Registrado", className: "bg-emerald-600 text-white border-none" });
+        await fetchPlayerDetails(viewingPlayerId);
+      } else {
+        throw new Error("Erro ao registrar");
+      }
+    } catch (e) {
+      toast({ title: "Erro", description: "Falha ao registrar pagamento", variant: "destructive" });
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const permissionAdmin = session?.user?.role === "ADMIN";
 
   const handleUpdatePlayer = async () => {
     if (!editingPlayer) return;
@@ -443,7 +490,9 @@ export default function PlayersPage() {
                         return (
                           <tr key={conf.id} className="hover:bg-white/[0.01] transition-colors">
                             <td className="px-4 py-3">
-                              <p className="font-bold text-zinc-200">{conf.game.title}</p>
+                              <Link href={`/games/${conf.game.id}`} className="hover:text-accent transition-colors">
+                                <p className="font-bold text-zinc-200">{conf.game.title}</p>
+                              </Link>
                               <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString("pt-BR")}</p>
                             </td>
                             <td className="px-4 py-3 text-center">
@@ -458,9 +507,22 @@ export default function PlayersPage() {
                                 </Badge>
                               )}
                               {payStatus === "PENDING" && (
-                                <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
-                                  <X className="h-3 w-3 mr-1" /> Pendente
-                                </Badge>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
+                                    <X className="h-3 w-3 mr-1" /> Pendente
+                                  </Badge>
+                                  {permissionAdmin && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 rounded-full hover:bg-emerald-900/30 text-emerald-500"
+                                      title="Confirmar Pagamento Manualmente"
+                                      onClick={() => handleManualPayment(conf.game.id, conf.game.pricePerPlayer || 0)}
+                                    >
+                                      <DollarSign className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
                               )}
                               {payStatus === "EXEMPT" && (
                                 <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase text-[9px] font-bold tracking-widest px-2">

@@ -162,7 +162,7 @@ export default function GameDetailPage() {
         const diffTime = gameDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays > 3 && !isAdmin) {
+        if (diffDays > 3) {
           toast({
             title: "AGUARDE",
             description: "A confirmação só é liberada 3 dias antes do jogo.",
@@ -432,11 +432,12 @@ export default function GameDetailPage() {
 
                     <Button
                       onClick={() => executeConfirmation("REMOVE")}
-                      disabled={confirming}
+                      disabled={confirming || (myConfirmation.status === 'CONFIRMED' && !isAdmin)}
                       variant="outline"
-                      className="w-full h-12 border-zinc-800 bg-transparent text-zinc-400 hover:text-white hover:border-white/20 uppercase tracking-widest font-display text-sm"
+                      className="w-full h-12 border-zinc-800 bg-transparent text-zinc-400 hover:text-white hover:border-white/20 uppercase tracking-widest font-display text-sm disabled:opacity-50"
+                      title={myConfirmation.status === 'CONFIRMED' && !isAdmin ? "Apenas administradores podem cancelar presenças confirmadas" : ""}
                     >
-                      Cancelar Presença
+                      {myConfirmation.status === 'CONFIRMED' && !isAdmin ? "Fale com Admin" : "Cancelar Presença"}
                     </Button>
                   </div>
                 ) : (

@@ -192,159 +192,161 @@ export default function VenuesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Locais</h1>
-          <p className="text-gray-500">Gerencie os locais das peladas</p>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Locais</h1>
+          <p className="text-zinc-500 mt-1">Gerencie os locais das peladas</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => handleOpenDialog()}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Local
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editingVenue ? "Editar Local" : "Novo Local"}
-              </DialogTitle>
-              <DialogDescription>
-                Preencha as informacoes do local
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Nome do local"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Jogo *</Label>
-                  <Select
-                    value={formData.gameType}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, gameType: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SYNTHETIC_GRASS">
-                        Grama Sintetica
-                      </SelectItem>
-                      <SelectItem value="FUTSAL">Futsal</SelectItem>
-                      <SelectItem value="FOOTBALL">Futebol</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Endereco *</Label>
-                <Input
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  placeholder="Rua, numero"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Link do Google Maps</Label>
-                <Input
-                  value={formData.googleMapsLink}
-                  onChange={(e) =>
-                    setFormData({ ...formData, googleMapsLink: e.target.value })
-                  }
-                  placeholder="https://maps.app.goo.gl/..."
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Cidade *</Label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) =>
-                      setFormData({ ...formData, city: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado *</Label>
-                  <Input
-                    value={formData.state}
-                    onChange={(e) =>
-                      setFormData({ ...formData, state: e.target.value })
-                    }
-                    maxLength={2}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CEP</Label>
-                  <Input
-                    value={formData.zipCode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, zipCode: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Telefone</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Preco/Hora (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.pricePerHour}
-                    onChange={(e) =>
-                      setFormData({ ...formData, pricePerHour: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Capacidade</Label>
-                  <Input
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, capacity: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
+        {isAdmin && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
               <Button
-                onClick={handleSubmit}
-                disabled={saving}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-accent text-black hover:bg-white font-bold uppercase tracking-wider"
+                onClick={() => handleOpenDialog()}
               >
-                {saving ? "Salvando..." : "Salvar"}
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Local
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg bg-zinc-950 border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  {editingVenue ? "Editar Local" : "Novo Local"}
+                </DialogTitle>
+                <DialogDescription className="text-zinc-400">
+                  Preencha as informacoes do local
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Nome *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      placeholder="Nome do local"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Jogo *</Label>
+                    <Select
+                      value={formData.gameType}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, gameType: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SYNTHETIC_GRASS">
+                          Grama Sintetica
+                        </SelectItem>
+                        <SelectItem value="FUTSAL">Futsal</SelectItem>
+                        <SelectItem value="FOOTBALL">Futebol</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Endereco *</Label>
+                  <Input
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    placeholder="Rua, numero"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Link do Google Maps</Label>
+                  <Input
+                    value={formData.googleMapsLink}
+                    onChange={(e) =>
+                      setFormData({ ...formData, googleMapsLink: e.target.value })
+                    }
+                    placeholder="https://maps.app.goo.gl/..."
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Cidade *</Label>
+                    <Input
+                      value={formData.city}
+                      onChange={(e) =>
+                        setFormData({ ...formData, city: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Estado *</Label>
+                    <Input
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({ ...formData, state: e.target.value })
+                      }
+                      maxLength={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CEP</Label>
+                    <Input
+                      value={formData.zipCode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, zipCode: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Telefone</Label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Preco/Hora (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.pricePerHour}
+                      onChange={(e) =>
+                        setFormData({ ...formData, pricePerHour: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Capacidade</Label>
+                    <Input
+                      type="number"
+                      value={formData.capacity}
+                      onChange={(e) =>
+                        setFormData({ ...formData, capacity: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {saving ? "Salvando..." : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Venues List */}
