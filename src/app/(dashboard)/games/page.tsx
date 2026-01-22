@@ -70,42 +70,53 @@ export default function GamesPage() {
 
   const GameCard = ({ game }: { game: Game }) => (
     <Link href={`/games/${game.id}`}>
-      <Card className="bg-zinc-950 border border-white/5 hover:border-accent/40 transition-all cursor-pointer group h-full flex flex-col justify-between">
-        <CardHeader className="pb-3 relative space-y-0">
+      <Card className="bg-zinc-950 border border-white/5 hover:border-accent/40 transition-all cursor-pointer group h-[340px] flex flex-col justify-between overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-4 opacity-50">
+          <div className="h-16 w-16 bg-accent/5 rounded-full blur-xl" />
+        </div>
+        <CardHeader className="pb-3 relative space-y-2 z-10">
           <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-xl font-display font-bold text-white uppercase tracking-wide group-hover:text-accent transition-colors">
+            <div className="space-y-2">
+              <Badge variant="outline" className="bg-zinc-900/50 border-white/10 text-zinc-500 uppercase text-[10px] tracking-wider mb-2">
+                {getGameTypeLabel(game.gameType)}
+              </Badge>
+              <CardTitle className="text-2xl font-display font-bold text-white uppercase tracking-wide group-hover:text-accent transition-colors leading-tight">
                 {game.title}
               </CardTitle>
-              <CardDescription className="flex items-center text-zinc-500 text-xs uppercase tracking-wider">
-                <MapPin className="h-3 w-3 mr-1 text-accent" />
+              <CardDescription className="flex items-center text-zinc-400 text-xs uppercase tracking-wider font-medium">
+                <MapPin className="h-3.5 w-3.5 mr-2 text-accent" />
                 {game.venue.name}
               </CardDescription>
             </div>
-            <Badge variant="outline" className="border-white/10 text-zinc-500 uppercase text-[10px] whitespace-nowrap">
-              {getGameTypeLabel(game.gameType)}
-            </Badge>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between py-2 border-t border-b border-white/5">
-              <div className="flex items-center text-zinc-400 text-sm">
-                <Calendar className="h-4 w-4 mr-2" />
-                {formatDate(game.date)}
+        <CardContent className="z-10 bg-gradient-to-t from-black/80 to-transparent pt-0 pb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between py-4 border-t border-white/5">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase text-zinc-600 font-bold tracking-widest">Data</span>
+                <div className="flex items-center text-zinc-300 font-bold">
+                  <Calendar className="h-4 w-4 mr-2 text-zinc-500" />
+                  {formatDate(game.date)}
+                </div>
               </div>
-              <div className="flex items-center text-zinc-400 text-sm">
-                <Clock className="h-4 w-4 mr-2" />
-                {game.startTime.slice(0, 5)}
+              <div className="flex flex-col gap-1 text-right">
+                <span className="text-[10px] uppercase text-zinc-600 font-bold tracking-widest">Horário</span>
+                <div className="flex items-center justify-end text-zinc-300 font-bold">
+                  <Clock className="h-4 w-4 mr-2 text-zinc-500" />
+                  {game.startTime.slice(0, 5)}
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-2 pt-2">
-              <div className="flex items-center text-zinc-500 text-sm">
-                <Users className="h-4 w-4 mr-2" />
-                <span className="text-white font-mono">{game._count.confirmations}</span>/{game.maxPlayers}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-zinc-500 text-sm bg-zinc-900/50 px-3 py-1.5 rounded-full border border-white/5">
+                <Users className="h-4 w-4 mr-2 text-users" />
+                <span className="text-white font-mono font-bold">{game._count.confirmations}</span>
+                <span className="mx-1">/</span>
+                <span className="text-zinc-500">{game.maxPlayers}</span>
               </div>
-              <span className="font-display font-bold text-accent text-lg">
+              <span className="font-display font-bold text-accent text-2xl">
                 {formatCurrency(game.pricePerPlayer)}
               </span>
             </div>
@@ -150,8 +161,8 @@ export default function GamesPage() {
 
         <TabsContent value="upcoming">
           {upcomingGames.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {upcomingGames.map((game) => (
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+              {upcomingGames.slice(0, 3).map((game) => (
                 <GameCard key={game.id} game={game} />
               ))}
             </div>

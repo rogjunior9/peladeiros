@@ -90,6 +90,7 @@ export default function PlayersPage() {
   const [playerDetails, setPlayerDetails] = useState<UserDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
 
   const isAdmin = session?.user?.role === "ADMIN";
 
@@ -468,84 +469,131 @@ export default function PlayersPage() {
               <div className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-accent flex items-center">
                   <Shield className="h-4 w-4 mr-2" />
-                  Participação em Peladas
+                  Participação em Peladas (Histórico)
                 </h3>
-                <div className="bg-black/40 rounded-xl border border-white/5 overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-white/5 bg-white/[0.02]">
-                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Data / Jogo</th>
-                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-center">Status</th>
-                        <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-right">Pagamento</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {playerDetails.confirmations.map((conf) => {
-                        const payStatus = getPaymentStatus(
-                          conf.game.date,
-                          conf.game.id,
-                          playerDetails,
-                          conf.status
-                        );
-                        return (
-                          <tr key={conf.id} className="hover:bg-white/[0.01] transition-colors">
-                            <td className="px-4 py-3">
-                              <Link href={`/games/${conf.game.id}`} className="hover:text-accent transition-colors">
-                                <p className="font-bold text-zinc-200">{conf.game.title}</p>
-                              </Link>
-                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString("pt-BR")}</p>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <Badge variant="outline" className="text-[9px] uppercase font-bold border-white/10 text-zinc-500">
-                                {conf.status === "CONFIRMED" ? "Jogou" : "Ausente"}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {payStatus === "PAID" && (
-                                <Badge variant="success" className="uppercase text-[9px] font-bold tracking-widest px-2 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                                  <Check className="h-3 w-3 mr-1" /> Pago
-                                </Badge>
-                              )}
-                              {payStatus === "PENDING" && (
-                                <div className="flex items-center justify-end gap-2">
-                                  <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
-                                    <X className="h-3 w-3 mr-1" /> Pendente
-                                  </Badge>
-                                  {permissionAdmin && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-6 w-6 rounded-full hover:bg-emerald-900/30 text-emerald-500"
-                                      title="Confirmar Pagamento Manualmente"
-                                      onClick={() => handleManualPayment(conf.game.id, conf.game.pricePerPlayer || 0)}
-                                    >
-                                      <DollarSign className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                              {payStatus === "EXEMPT" && (
-                                <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase text-[9px] font-bold tracking-widest px-2">
-                                  <Shield className="h-3 w-3 mr-1" /> Isento
-                                </Badge>
-                              )}
-                              {payStatus === "NONE" && (
-                                <span className="text-zinc-700 text-xs font-mono">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {playerDetails.confirmations.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-8 text-center text-zinc-600 italic text-xs">
-                            Nenhuma participação registrada
-                          </td>
-                        </tr>
+
+                {(() => {
+                  const filteredHistory = playerDetails.confirmations.filter(conf => {
+                    const isConfirmed = conf.status === "CONFIRMED";
+                    const isPast = new Date(conf.game.date) < new Date();
+                    return isConfirmed && isPast;
+                  });
+
+                  const itemsPerPage = 5;
+                  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+                  const paginatedHistory = filteredHistory.slice(
+                    (historyPage - 1) * itemsPerPage,
+                    historyPage * itemsPerPage
+                  );
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="bg-black/40 rounded-xl border border-white/5 overflow-hidden">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02]">
+                              <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Data / Jogo</th>
+                              <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-center">Status</th>
+                              <th className="px-4 py-3 text-[10px] uppercase font-bold text-zinc-500 tracking-widest text-right">Pagamento</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {paginatedHistory.map((conf) => {
+                              const payStatus = getPaymentStatus(
+                                conf.game.date,
+                                conf.game.id,
+                                playerDetails,
+                                conf.status
+                              );
+                              return (
+                                <tr key={conf.id} className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="px-4 py-3">
+                                    <Link href={`/games/${conf.game.id}`} className="hover:text-accent transition-colors">
+                                      <p className="font-bold text-zinc-200">{conf.game.title}</p>
+                                    </Link>
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString("pt-BR")}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge variant="outline" className="text-[9px] uppercase font-bold border-white/10 text-zinc-500">
+                                      Jogou
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {payStatus === "PAID" && (
+                                      <Badge variant="success" className="uppercase text-[9px] font-bold tracking-widest px-2 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                        <Check className="h-3 w-3 mr-1" /> Pago
+                                      </Badge>
+                                    )}
+                                    {payStatus === "PENDING" && (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
+                                          <X className="h-3 w-3 mr-1" /> Pendente
+                                        </Badge>
+                                        {permissionAdmin && (
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 rounded-full hover:bg-emerald-900/30 text-emerald-500"
+                                            title="Confirmar Pagamento Manualmente"
+                                            onClick={() => handleManualPayment(conf.game.id, conf.game.pricePerPlayer || 0)}
+                                          >
+                                            <DollarSign className="h-4 w-4" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )}
+                                    {payStatus === "EXEMPT" && (
+                                      <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase text-[9px] font-bold tracking-widest px-2">
+                                        <Shield className="h-3 w-3 mr-1" /> Isento
+                                      </Badge>
+                                    )}
+                                    {payStatus === "NONE" && (
+                                      <span className="text-zinc-700 text-xs font-mono">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {filteredHistory.length === 0 && (
+                              <tr>
+                                <td colSpan={3} className="px-4 py-8 text-center text-zinc-600 italic text-xs">
+                                  Nenhuma participação confirmada em jogos passados.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      {filteredHistory.length > itemsPerPage && (
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-[10px] text-zinc-600 uppercase tracking-wider">
+                            Página {historyPage} de {totalPages}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[10px] uppercase border-white/10 text-zinc-400 hover:text-white"
+                              onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                              disabled={historyPage === 1}
+                            >
+                              Anterior
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[10px] uppercase border-white/10 text-zinc-400 hover:text-white"
+                              onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                              disabled={historyPage === totalPages}
+                            >
+                              Próxima
+                            </Button>
+                          </div>
+                        </div>
                       )}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Histórico Financeiro Direto */}
