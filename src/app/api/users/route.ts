@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
             game: {
               date: {
                 lt: now
-              }
+              },
+              isActive: true
             }
           },
           select: { id: true }

@@ -28,6 +28,9 @@ export async function GET(
         isActive: true,
         createdAt: true,
         confirmations: {
+          where: {
+            game: { isActive: true }
+          },
           include: {
             game: {
               select: { id: true, title: true, date: true, pricePerPlayer: true },

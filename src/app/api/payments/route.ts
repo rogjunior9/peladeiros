@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
         ...(userId ? { userId } : {}),
         ...(gameId ? { gameId } : {}),
         ...(month ? { referenceMonth: month } : {}),
+        OR: [
+          { gameId: null },
+          { game: { isActive: true } }
+        ],
       },
       include: {
         user: {
