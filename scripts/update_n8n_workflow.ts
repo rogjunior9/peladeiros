@@ -30,9 +30,20 @@ async function getWorkflow() {
     return data;
 }
 
+interface WorkflowNode {
+    type: string;
+    position: [number, number];
+    name: string;
+    wires?: string[][][];
+    [key: string]: any;
+}
+
 function addSwitchNode(workflow: any) {
     // Find the webhook node (type: "n8n-nodes-base.webhook")
-    const webhookNode = Object.values(workflow.nodes).find((n: any) => n.type === 'n8n-nodes-base.webhook');
+    // Explicitly cast nodes to array and use the interface
+    const nodes = workflow.nodes as WorkflowNode[];
+    const webhookNode = nodes.find((n) => n.type === 'n8n-nodes-base.webhook');
+
     if (!webhookNode) {
         console.warn('Webhook node not found – skipping switch insertion');
         return workflow;
