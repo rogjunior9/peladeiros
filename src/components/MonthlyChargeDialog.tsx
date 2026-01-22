@@ -107,6 +107,10 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
     };
 
     const getStatusBadge = (user: UserStatus) => {
+        if (user.playerType === 'GOALKEEPER') {
+            return <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/50 hover:bg-indigo-500/20">Isento</Badge>;
+        }
+
         const payment = user.payments[0];
         if (!payment) return <Badge variant="outline" className="text-slate-500 border-slate-700">Não Gerado</Badge>;
         if (payment.status === "PAID") return <Badge className="bg-emerald-600">Pago</Badge>;
