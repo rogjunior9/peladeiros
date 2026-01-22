@@ -179,19 +179,30 @@ export default function PlayersPage() {
     return matchesSearch && matchesType;
   });
 
-  const isGamePaid = (gameDate: string, gameId: string, player: UserDetail) => {
-    if (player.playerType === "GOALKEEPER") return true;
+  const getPaymentStatus = (
+    gameDate: string,
+    gameId: string,
+    player: UserDetail,
+    participationStatus: string
+  ) => {
+    if (player.playerType === "GOALKEEPER") {
+      return participationStatus === "CONFIRMED" ? "EXEMPT" : "NONE";
+    }
+
+    let isPaid = false;
 
     if (player.playerType === "MONTHLY") {
       const monthStr = gameDate.substring(0, 7); // YYYY-MM
-      return player.payments.some(
+      isPaid = player.payments.some(
         (p) => p.referenceMonth === monthStr && p.status === "CONFIRMED"
+      );
+    } else {
+      isPaid = player.payments.some(
+        (p) => p.gameId === gameId && p.status === "CONFIRMED"
       );
     }
 
-    return player.payments.some(
-      (p) => p.gameId === gameId && p.status === "CONFIRMED"
-    );
+    return isPaid ? "PAID" : "PENDING";
   };
 
   const stats = {
@@ -423,27 +434,41 @@ export default function PlayersPage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {playerDetails.confirmations.map((conf) => {
-                        const paid = isGamePaid(conf.game.date, conf.game.id, playerDetails);
+                        const payStatus = getPaymentStatus(
+                          conf.game.date,
+                          conf.game.id,
+                          playerDetails,
+                          conf.status
+                        );
                         return (
                           <tr key={conf.id} className="hover:bg-white/[0.01] transition-colors">
                             <td className="px-4 py-3">
                               <p className="font-bold text-zinc-200">{conf.game.title}</p>
-                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString('pt-BR')}</p>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{new Date(conf.game.date).toLocaleDateString("pt-BR")}</p>
                             </td>
                             <td className="px-4 py-3 text-center">
                               <Badge variant="outline" className="text-[9px] uppercase font-bold border-white/10 text-zinc-500">
-                                {conf.status === 'CONFIRMED' ? 'Jogou' : 'Ausente'}
+                                {conf.status === "CONFIRMED" ? "Jogou" : "Ausente"}
                               </Badge>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              {paid ? (
+                              {payStatus === "PAID" && (
                                 <Badge variant="success" className="uppercase text-[9px] font-bold tracking-widest px-2 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                   <Check className="h-3 w-3 mr-1" /> Pago
                                 </Badge>
-                              ) : (
+                              )}
+                              {payStatus === "PENDING" && (
                                 <Badge variant="destructive" className="uppercase text-[9px] font-bold tracking-widest px-2">
                                   <X className="h-3 w-3 mr-1" /> Pendente
                                 </Badge>
+                              )}
+                              {payStatus === "EXEMPT" && (
+                                <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase text-[9px] font-bold tracking-widest px-2">
+                                  <Shield className="h-3 w-3 mr-1" /> Isento
+                                </Badge>
+                              )}
+                              {payStatus === "NONE" && (
+                                <span className="text-zinc-700 text-xs font-mono">-</span>
                               )}
                             </td>
                           </tr>
