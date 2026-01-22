@@ -126,19 +126,32 @@ export async function POST(
           pixData.creditAmount = creditAmount;
 
           // Gerar PagSeguro se tiver CPF
-          if (cpf) {
+
+          // Reuse existing PENDING payment if any
+          const existingPayment = await prisma.payment.findFirst({
+            where: {
+              userId: confirmation.userId!,
+              gameId: game.id,
+              status: "PENDING"
+            }
+          });
+
+          let paymentToUse = existingPayment;
+
+          // Only create new if none exists
+          if (!existingPayment && cpf) {
             try {
               // 1. Pix
               const paymentRes = await pagseguro.createPixPayment({
                 amount: game.pricePerPlayer,
                 description: `Pelada ${game.title}`,
                 referenceId: `GAME-${game.id}-USER-${confirmation.userId}-${Date.now()}`,
-                customerName: confirmation.user.name || "Jogador",
-                customerEmail: confirmation.user.email || settings.pixKey || "admin@peladeiros.com",
+                customerName: confirmation.user!.name || "Jogador",
+                customerEmail: confirmation.user!.email || settings.pixKey || "admin@peladeiros.com",
                 customerDocument: cpf
               });
 
-              await prisma.payment.create({
+              paymentToUse = await prisma.payment.create({
                 data: {
                   userId: confirmation.userId!, // userId existe pois checamos confirmation.user
                   gameId: game.id,
@@ -149,29 +162,39 @@ export async function POST(
                   externalCode: paymentRes.referenceId,
                   pixCode: paymentRes.pixCode,
                   pixQrCode: paymentRes.pixQrCode
-                }
+                },
+                include: { user: true, game: true } // consistency
               });
-
-              pixData.pixCode = paymentRes.pixCode || "";
-              pixData.pixQrCode = paymentRes.pixQrCode || "";
-
-              // 2. Credit Link
-              try {
-                const link = await pagseguro.createPaymentLink({
-                  amount: creditAmount,
-                  description: `Pelada ${game.title} (Credito)`,
-                  referenceId: `CREDIT-${game.id}-USER-${confirmation.userId}-${Date.now()}`,
-                  customerName: confirmation.user.name || "Jogador",
-                  customerEmail: confirmation.user.email || "admin@peladeiros.com",
-                  customerDocument: cpf
-                });
-                if (link) pixData.creditLink = link;
-              } catch (e) { console.error("Erro Link", e); }
 
             } catch (err) {
               console.error("Erro PagSeguro Create", err);
             }
           }
+
+          if (paymentToUse) {
+            pixData.pixCode = paymentToUse.pixCode || "";
+            pixData.pixQrCode = paymentToUse.pixQrCode || "";
+          }
+
+          // 2. Credit Link (Always generate link as it is stateless? Or reuse? Link expires, so maybe generate new is fine or check if we store link. We dont store link in DB currently only pixCode. So let's generate link fresh or skip if we want to be strict. Let's keep link generation for now as fallback).
+          // Actually, if we are reusing payment, we might want to just show the existing info.
+
+          if (cpf && !existingPayment) {
+            // Only generate link if we created a new payment flow, or just always generate? 
+            // Let's always try to generate credit link if we have CPF, it doesn't hurt DB.
+            try {
+              const link = await pagseguro.createPaymentLink({
+                amount: creditAmount,
+                description: `Pelada ${game.title} (Credito)`,
+                referenceId: `CREDIT-${game.id}-USER-${confirmation.userId}-${Date.now()}`,
+                customerName: confirmation.user!.name || "Jogador",
+                customerEmail: confirmation.user!.email || "admin@peladeiros.com",
+                customerDocument: cpf
+              });
+              if (link) pixData.creditLink = link;
+            } catch (e) { console.error("Erro Link", e); }
+          }
+
 
           const webhookUrl = process.env.N8N_WEBHOOK_URL.replace(/\/webhook\/saldo$/, "") + "/webhook/financial-events";
 
@@ -226,6 +249,23 @@ export async function DELETE(
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
     }
 
+    // 1. Cancel pending payments
+    const pendingPayment = await prisma.payment.findFirst({
+      where: {
+        gameId: params.id,
+        userId: session.user.id,
+        status: "PENDING"
+      }
+    });
+
+    if (pendingPayment) {
+      await prisma.payment.update({
+        where: { id: pendingPayment.id },
+        data: { status: "CANCELLED" }
+      });
+    }
+
+    // 2. Remove confirmation
     await prisma.gameConfirmation.deleteMany({
       where: {
         gameId: params.id,

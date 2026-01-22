@@ -87,6 +87,17 @@ export async function POST(request: NextRequest) {
       const gameDate = getFixedDate(date);
       gameDate.setDate(gameDate.getDate() + (i * 7));
 
+      // Check collision
+      const collision = await prisma.game.findFirst({
+        where: {
+          venueId,
+          isActive: true,
+          date: gameDate, // Precise match as we norm to 12:00 UTC
+        }
+      });
+
+      if (collision) continue;
+
       const game = await prisma.game.create({
         data: {
           title,
