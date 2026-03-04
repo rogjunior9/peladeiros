@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { createTransactionSchema, transactionQuerySchema } from "@/lib/schemas";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -13,13 +15,26 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type");
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    
+    // Validar query params
+    const queryResult = transactionQuerySchema.safeParse({
+      type: searchParams.get("type"),
+      startDate: searchParams.get("startDate"),
+      endDate: searchParams.get("endDate"),
+    });
+
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Parâmetros inválidos", details: queryResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { type, startDate, endDate } = queryResult.data;
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        ...(type ? { type: type as any } : {}),
+        ...(type ? { type } : {}),
         ...(startDate || endDate
           ? {
             date: {
@@ -47,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -63,24 +78,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, amount, description, category, date } = body;
+    
+    // Validar com Zod
+    const validationResult = createTransactionSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
 
-    const transaction = await prisma.transaction.create({
-      data: {
-        type,
-        amount: parseFloat(amount),
-        description,
-        category,
-        date: date ? new Date(date) : new Date(),
-        createdById: session.user.id,
-      },
-      include: {
-        createdBy: {
-          select: { name: true },
+    const { type, amount, description, category, date, gameId } = validationResult.data;
+
+    // Executar em transação
+    const transaction = await prisma.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
+        data: {
+          type,
+          amount,
+          description,
+          category,
+          date: date ? new Date(date) : new Date(),
+          createdById: session.user.id,
+          gameId,
         },
-      },
+        include: {
+          createdBy: {
+            select: { name: true },
+          },
+        },
+      });
+
+      return created;
     });
 
+    // Audit log (fora da transação para não bloquear)
     await createAuditLog(
       session.user.id,
       "CREATE",
@@ -98,3 +131,14 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Exportar com rate limiting
+export const GET = withRateLimit(handleGet, {
+  limiter: rateLimiters.api,
+  keyPrefix: "transactions:list",
+});
+
+export const POST = withRateLimit(handlePost, {
+  limiter: rateLimiters.api,
+  keyPrefix: "transactions:create",
+});

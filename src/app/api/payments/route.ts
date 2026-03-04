@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { createPaymentSchema, paymentQuerySchema } from "@/lib/schemas";
+import { ZodError } from "zod";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -12,15 +15,31 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-    const userId = searchParams.get("userId");
-    const gameId = searchParams.get("gameId");
-    const month = searchParams.get("month");
+    
+    // Validar query params
+    const queryResult = paymentQuerySchema.safeParse({
+      status: searchParams.get("status"),
+      userId: searchParams.get("userId"),
+      gameId: searchParams.get("gameId"),
+      month: searchParams.get("month"),
+    });
+
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Parâmetros inválidos", details: queryResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { status, userId, gameId, month } = queryResult.data;
+
+    // Se não for admin, só pode ver seus próprios pagamentos
+    const effectiveUserId = session.user.role !== "ADMIN" ? session.user.id : userId;
 
     const payments = await prisma.payment.findMany({
       where: {
-        ...(status ? { status: status as any } : {}),
-        ...(userId ? { userId } : {}),
+        ...(status ? { status } : {}),
+        ...(effectiveUserId ? { userId: effectiveUserId } : {}),
         ...(gameId ? { gameId } : {}),
         ...(month ? { referenceMonth: month } : {}),
         OR: [
@@ -49,7 +68,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -58,15 +77,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      amount,
-      method,
-      userId,
-      gameId,
-      referenceMonth,
-      notes,
-      status: paymentStatus,
-    } = body;
+    
+    // Validar com Zod
+    const validationResult = createPaymentSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { amount, method, userId, gameId, referenceMonth, notes, status: paymentStatus } = validationResult.data;
 
     // Only admin can create CASH payments with CONFIRMED status
     if (method === "CASH" && session.user.role !== "ADMIN") {
@@ -76,12 +98,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Se não for admin, só pode criar pagamento para si mesmo
+    const effectiveUserId = session.user.role !== "ADMIN" 
+      ? session.user.id 
+      : (userId || session.user.id);
+
+    // Verificar se usuário existe
+    const user = await prisma.user.findUnique({
+      where: { id: effectiveUserId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    }
+
+    // Se houver gameId, verificar se jogo existe
+    if (gameId) {
+      const game = await prisma.game.findUnique({
+        where: { id: gameId },
+      });
+      if (!game) {
+        return NextResponse.json({ error: "Jogo não encontrado" }, { status: 404 });
+      }
+    }
+
     const payment = await prisma.payment.create({
       data: {
-        amount: parseFloat(amount),
+        amount,
         method,
         status: method === "CASH" && session.user.role === "ADMIN" ? (paymentStatus || "CONFIRMED") : "PENDING",
-        userId: userId || session.user.id,
+        userId: effectiveUserId,
         gameId,
         referenceMonth,
         notes,
@@ -103,3 +149,14 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Exportar com rate limiting
+export const GET = withRateLimit(handleGet, {
+  limiter: rateLimiters.api,
+  keyPrefix: "payments:list",
+});
+
+export const POST = withRateLimit(handlePost, {
+  limiter: rateLimiters.payment,
+  keyPrefix: "payments:create",
+});

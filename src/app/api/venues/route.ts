@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { createVenueSchema } from "@/lib/schemas";
 
-export async function GET() {
+async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -13,14 +15,6 @@ export async function GET() {
 
     const venues = await prisma.venue.findMany({
       where: { isActive: true },
-      include: {
-        createdBy: {
-          select: { name: true },
-        },
-        _count: {
-          select: { games: true },
-        },
-      },
       orderBy: { name: "asc" },
     });
 
@@ -34,7 +28,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -44,15 +38,27 @@ export async function POST(request: NextRequest) {
 
     if (session.user.role !== "ADMIN") {
       return NextResponse.json(
-        { error: "Apenas administradores podem cadastrar locais" },
+        { error: "Apenas administradores podem criar locais" },
         { status: 403 }
       );
     }
 
     const body = await request.json();
+    
+    // Validar com Zod
+    const validationResult = createVenueSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
+
     const {
       name,
       address,
+      googleMapsLink,
       city,
       state,
       zipCode,
@@ -60,21 +66,20 @@ export async function POST(request: NextRequest) {
       pricePerHour,
       gameType,
       capacity,
-      googleMapsLink,
-    } = body;
+    } = validationResult.data;
 
     const venue = await prisma.venue.create({
       data: {
         name,
         address,
+        googleMapsLink,
         city,
         state,
         zipCode,
         phone,
-        pricePerHour: pricePerHour ? parseFloat(pricePerHour) : null,
+        pricePerHour,
         gameType,
-        capacity: capacity ? parseInt(String(capacity)) : 22,
-        googleMapsLink,
+        capacity,
         createdById: session.user.id,
       },
     });
@@ -88,3 +93,14 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Exportar com rate limiting
+export const GET = withRateLimit(handleGet, {
+  limiter: rateLimiters.api,
+  keyPrefix: "venues:list",
+});
+
+export const POST = withRateLimit(handlePost, {
+  limiter: rateLimiters.api,
+  keyPrefix: "venues:create",
+});

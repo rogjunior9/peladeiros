@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { createGameSchema, gameQuerySchema } from "@/lib/schemas";
+import { addDays, parseISO, format } from "date-fns";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -12,12 +15,25 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const upcoming = searchParams.get("upcoming") === "true";
+    
+    // Validar query params
+    const queryResult = gameQuerySchema.safeParse({
+      upcoming: searchParams.get("upcoming"),
+    });
+
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Parâmetros inválidos", details: queryResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { upcoming } = queryResult.data;
 
     const games = await prisma.game.findMany({
       where: {
         isActive: true,
-        ...(upcoming ? { date: { gte: new Date() } } : {}),
+        ...(upcoming === "true" ? { date: { gte: new Date() } } : {}),
       },
       include: {
         venue: true,
@@ -32,7 +48,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { date: upcoming ? "asc" : "desc" },
+      orderBy: { date: upcoming === "true" ? "asc" : "desc" },
     });
 
     return NextResponse.json(games);
@@ -45,7 +61,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -61,6 +77,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    
+    // Validar com Zod
+    const validationResult = createGameSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
+
     const {
       title,
       description,
@@ -74,51 +101,87 @@ export async function POST(request: NextRequest) {
       venueId,
       billingType,
       isRecurring,
-    } = body;
+    } = validationResult.data;
 
-    // Helper to fix date timezone (force 12:00 UTC)
-    const getFixedDate = (dateString: string) => new Date(`${dateString}T12:00:00Z`);
+    // Verificar se venue existe
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+    });
 
-    const createdGames = [];
+    if (!venue) {
+      return NextResponse.json(
+        { error: "Local de jogo não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Helper para criar data corretamente (meio-dia UTC para evitar problemas de timezone)
+    const getFixedDate = (dateString: string) => {
+      const [year, month, day] = dateString.split('-').map(Number);
+      // Criar data UTC ao meio-dia para evitar problemas de timezone
+      return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    };
+
+    const createdGames: any[] = [];
     const recurrenceId = isRecurring ? crypto.randomUUID() : null;
     const iterations = isRecurring ? 26 : 1; // 26 weeks = 6 months
 
-    for (let i = 0; i < iterations; i++) {
-      const gameDate = getFixedDate(date);
-      gameDate.setDate(gameDate.getDate() + (i * 7));
+    // Executar criações em transação
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < iterations; i++) {
+        const baseDate = getFixedDate(date);
+        const gameDate = addDays(baseDate, i * 7);
 
-      // Check collision
-      const collision = await prisma.game.findFirst({
-        where: {
-          venueId,
-          isActive: true,
-          date: gameDate, // Precise match as we norm to 12:00 UTC
+        // Check collision - usar apenas a parte da data (ignorar hora)
+        const nextDay = addDays(gameDate, 1);
+        
+        const collision = await tx.game.findFirst({
+          where: {
+            venueId,
+            isActive: true,
+            date: {
+              gte: gameDate,
+              lt: nextDay,
+            },
+          }
+        });
+
+        if (collision) {
+          console.log(`[Game Create] Colisão detectada para data ${gameDate.toISOString()}, pulando...`);
+          continue;
         }
-      });
 
-      if (collision) continue;
+        const game = await tx.game.create({
+          data: {
+            title,
+            description,
+            date: gameDate,
+            startTime,
+            endTime,
+            gameType,
+            maxPlayers,
+            pricePerPlayer,
+            priceGoalkeeper,
+            billingType,
+            venueId,
+            createdById: session.user.id,
+            recurrenceId,
+          },
+          include: {
+            venue: true,
+          },
+        });
+        createdGames.push(game);
+      }
+    }, {
+      isolationLevel: "Serializable",
+    });
 
-      const game = await prisma.game.create({
-        data: {
-          title,
-          description,
-          date: gameDate,
-          startTime,
-          endTime,
-          gameType,
-          maxPlayers: maxPlayers ? parseInt(String(maxPlayers)) : 22,
-          pricePerPlayer: pricePerPlayer ? parseFloat(String(pricePerPlayer)) : 0,
-          priceGoalkeeper: priceGoalkeeper ? parseFloat(String(priceGoalkeeper)) : 0,
-          billingType: billingType || "SINGLE",
-          venueId,
-          createdById: session.user.id,
-          recurrenceId,
-        },
-        include: {
-          venue: true,
-        },
-      });
-      createdGames.push(game);
+    if (createdGames.length === 0) {
+      return NextResponse.json(
+        { error: "Não foi possível criar nenhum jogo. Verifique se já existem jogos nas datas selecionadas." },
+        { status: 409 }
+      );
     }
 
     // Return the first created game
@@ -131,3 +194,14 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Exportar com rate limiting
+export const GET = withRateLimit(handleGet, {
+  limiter: rateLimiters.api,
+  keyPrefix: "games:list",
+});
+
+export const POST = withRateLimit(handlePost, {
+  limiter: rateLimiters.api,
+  keyPrefix: "games:create",
+});

@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { userQuerySchema } from "@/lib/schemas";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -14,15 +16,28 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const playerType = searchParams.get("playerType");
-    const isActive = searchParams.get("isActive");
+    
+    // Validar query params
+    const queryResult = userQuerySchema.safeParse({
+      playerType: searchParams.get("playerType"),
+      isActive: searchParams.get("isActive"),
+    });
+
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Parâmetros inválidos", details: queryResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { playerType, isActive } = queryResult.data;
 
     const now = new Date();
 
     const usersData = await prisma.user.findMany({
       where: {
-        ...(playerType ? { playerType: playerType as any } : {}),
-        ...(isActive !== null ? { isActive: isActive === "true" } : {}),
+        ...(playerType ? { playerType } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === "true" } : {}),
       },
       select: {
         id: true,
@@ -82,3 +97,9 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+// Exportar com rate limiting
+export const GET = withRateLimit(handleGet, {
+  limiter: rateLimiters.api,
+  keyPrefix: "users:list",
+});

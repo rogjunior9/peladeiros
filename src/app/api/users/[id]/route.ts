@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
+import { updateUserSchema } from "@/lib/schemas";
 
-export async function GET(
+async function handleGet(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -50,6 +52,11 @@ export async function GET(
       return NextResponse.json({ error: "Usuario nao encontrado" }, { status: 404 });
     }
 
+    // Se não for admin, só pode ver próprio perfil
+    if (session.user.role !== "ADMIN" && session.user.id !== params.id) {
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
+    }
+
     return NextResponse.json(user);
   } catch (error) {
     console.error("Erro ao buscar usuario:", error);
@@ -60,7 +67,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePut(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -72,47 +79,74 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, phone, document, role, playerType, isActive } = body;
-
-    // Only admin can change role and playerType
-    if ((role || playerType !== undefined) && session.user.role !== "ADMIN") {
-      // User can only update their own profile
-      if (params.id !== session.user.id) {
-        return NextResponse.json(
-          { error: "Sem permissao para editar este usuario" },
-          { status: 403 }
-        );
-      }
+    
+    // Validar com Zod
+    const validationResult = updateUserSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: validationResult.error.errors },
+        { status: 400 }
+      );
     }
 
+    const { name, phone, document, role, playerType, isActive } = validationResult.data;
+
+    // Verificar permissões
+    const isSelf = params.id === session.user.id;
+    const isAdmin = session.user.role === "ADMIN";
+
+    // Only admin can change role and playerType
+    if ((role || playerType !== undefined) && !isAdmin && !isSelf) {
+      return NextResponse.json(
+        { error: "Sem permissao para editar este usuario" },
+        { status: 403 }
+      );
+    }
+
+    // Construir objeto de update
     const updateData: any = {};
 
     // User can update their own name, phone, document, and playerType
-    if (params.id === session.user.id || session.user.role === "ADMIN") {
+    if (isSelf || isAdmin) {
       if (name) updateData.name = name;
       if (phone !== undefined) updateData.phone = phone;
-      if (document !== undefined) updateData.document = document;
+      if (document !== undefined) updateData.document = document.replace(/\D/g, "");
       if (playerType !== undefined) updateData.playerType = playerType;
     }
 
     // Only admin can update these fields
-    if (session.user.role === "ADMIN") {
+    if (isAdmin) {
       if (role) updateData.role = role;
       if (isActive !== undefined) updateData.isActive = isActive;
     }
 
-    const user = await prisma.user.update({
+    // Verificar se usuário existe
+    const existingUser = await prisma.user.findUnique({
       where: { id: params.id },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        playerType: true,
-        isActive: true,
-      },
+    });
+
+    if (!existingUser) {
+      return NextResponse.json({ error: "Usuario nao encontrado" }, { status: 404 });
+    }
+
+    // Executar update em transação
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: params.id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          playerType: true,
+          isActive: true,
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json(user);
@@ -124,3 +158,18 @@ export async function PUT(
     );
   }
 }
+
+// Exportar com rate limiting
+const getHandler = (req: NextRequest, ctx: { params: { id: string } }) => handleGet(req, ctx);
+const putHandler = (req: NextRequest, ctx: { params: { id: string } }) => handlePut(req, ctx);
+
+export const GET = withRateLimit(getHandler, {
+  limiter: rateLimiters.api,
+  keyPrefix: "users:get",
+});
+
+export const PUT = withRateLimit(putHandler, {
+  limiter: rateLimiters.api,
+  keyPrefix: "users:update",
+  getKey: (req) => `users:update:${req.ip || "anonymous"}`,
+});
