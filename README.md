@@ -38,6 +38,22 @@ npm run db:push
 npm run dev
 ```
 
+## Banco de dados: contingência rápida
+- O projeto usa `Prisma + PostgreSQL`. Se um host Postgres cair ou ficar inacessível, a troca mais rápida e segura é para **outro Postgres gerenciado** (ex.: Supabase, Neon, Railway), sem refatorar código.
+- Passos:
+1. Crie um novo banco PostgreSQL no provedor.
+2. Atualize `DATABASE_URL` no `.env` (ou variável de ambiente da hospedagem).
+3. Rode `npm run db:push` para sincronizar o schema.
+4. Valide com `npm run build` e teste os fluxos principais.
+
+- Alternativa local imediata:
+1. Suba o Postgres do projeto com `docker compose up -d db`.
+2. Aponte `DATABASE_URL` para `localhost:5432`.
+3. Rode `npm run db:push`.
+
+- Sobre Firebase:
+  Firebase exige mudança de ORM/acesso a dados (o Prisma não conecta direto no Firestore), então não é fallback de curto prazo para este código atual.
+
 ## Scripts
 ```bash
 npm run dev
@@ -57,4 +73,3 @@ npm run db:studio
 ## Segurança
 - Não versionar segredos em JSON, scripts, docs ou commits.
 - Use `.env` apenas localmente.
-

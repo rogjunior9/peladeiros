@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,15 +51,7 @@ export default function EditGamePage() {
         venueId: "",
     });
 
-    useEffect(() => {
-        if (session?.user?.role !== "ADMIN") {
-            router.push("/games");
-            return;
-        }
-        fetchData();
-    }, [session, router, gameId]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             // Fetch venues
@@ -100,7 +92,15 @@ export default function EditGamePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [gameId, router, toast]);
+
+    useEffect(() => {
+        if (session?.user?.role !== "ADMIN") {
+            router.push("/games");
+            return;
+        }
+        fetchData();
+    }, [session?.user?.role, router, fetchData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

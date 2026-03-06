@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -90,19 +90,16 @@ export default function GameDetailPage() {
   const isAdmin = session?.user?.role === "ADMIN";
   const gameId = params.id as string;
 
-  useEffect(() => {
-    fetchGame();
-    if (session?.user?.id) fetchUserProfile();
-  }, [gameId, session?.user?.id]);
+  const fetchUserProfile = useCallback(async () => {
+    if (!session?.user?.id) return;
 
-  const fetchUserProfile = async () => {
     try {
       const res = await fetch(`/api/users/${session?.user?.id}`);
       if (res.ok) setUserProfile(await res.json());
     } catch (e) { }
-  };
+  }, [session?.user?.id]);
 
-  const fetchGame = async () => {
+  const fetchGame = useCallback(async () => {
     try {
       const response = await fetch(`/api/games/${gameId}`);
       if (response.ok) {
@@ -115,7 +112,12 @@ export default function GameDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gameId, router]);
+
+  useEffect(() => {
+    fetchGame();
+    fetchUserProfile();
+  }, [fetchGame, fetchUserProfile]);
 
   const executeConfirmation = async (status: string) => {
     setConfirming(true);

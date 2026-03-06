@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,11 +45,7 @@ export default function MonthlyFeesPage() {
     const [amount, setAmount] = useState("60.00");
     const [processing, setProcessing] = useState(false);
 
-    useEffect(() => {
-        fetchFees();
-    }, [selectedMonth]);
-
-    const fetchFees = async () => {
+    const fetchFees = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/finance/monthly-fees?month=${selectedMonth}`);
@@ -63,7 +59,11 @@ export default function MonthlyFeesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedMonth, toast]);
+
+    useEffect(() => {
+        fetchFees();
+    }, [fetchFees]);
 
     const handlePayment = async () => {
         if (!payingUser) return;

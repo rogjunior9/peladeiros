@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -56,17 +56,7 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const { toast } = useToast();
 
-    // Reset to current month when opening
-    useEffect(() => {
-        if (open) {
-            // Optional: reset month or keep last selection? 
-            // Keeping last selection is better UX usually, but let's default to current if empty
-            if (!selectedMonth) setSelectedMonth(new Date().toISOString().slice(0, 7));
-            loadData();
-        }
-    }, [open, selectedMonth]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/finance/monthly-status?month=${selectedMonth}`);
@@ -79,11 +69,21 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedMonth, toast]);
+
+    // Reset to current month when opening
+    useEffect(() => {
+        if (open) {
+            if (!selectedMonth) setSelectedMonth(new Date().toISOString().slice(0, 7));
+            loadData();
+        }
+    }, [open, selectedMonth, loadData]);
 
     const updateUserType = async (userId: string, newType: string) => {
         // Optimistic Update
-        setUsers(users.map(u => u.id === userId ? { ...u, playerType: newType } : u));
+        setUsers((currentUsers) =>
+            currentUsers.map((u) => (u.id === userId ? { ...u, playerType: newType } : u))
+        );
 
         try {
             await fetch(`/api/users/${userId}`, {
