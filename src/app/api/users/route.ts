@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/supabase-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { userQuerySchema } from "@/lib/schemas";
@@ -14,7 +13,7 @@ function buildAvatarUrl(name?: string | null, email?: string | null) {
 
 async function handleGet(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });

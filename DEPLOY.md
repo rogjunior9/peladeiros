@@ -13,8 +13,13 @@
 
 ## 3. Variáveis de ambiente (um único `.env` equivalente no painel)
 
+### Banco de dados Supabase
+- Em VPS/EasyPanel, prefira a connection string do **Session pooler** do Supabase.
+- A URL direta `db.<project-ref>.supabase.co` costuma depender de IPv6. Se o host não tiver IPv6 funcional, o app sobe mas o login quebra ao salvar usuário/sessão no NextAuth.
+- Copie a string em `Supabase Dashboard > Connect > Session pooler`.
+
 ```
-DATABASE_URL=postgresql://postgres:SUA_SENHA@db.<project-ref>.supabase.co:5432/postgres?sslmode=require
+DATABASE_URL=postgresql://postgres.<project-ref>:SUA_SENHA@aws-0-REGIAO.pooler.supabase.com:5432/postgres?sslmode=require
 NEXTAUTH_URL=https://SEU_DOMINIO
 NEXTAUTH_SECRET=gere-com-openssl-rand-base64-32
 GOOGLE_CLIENT_ID=...
@@ -37,8 +42,10 @@ SUPABASE_SERVICE_ROLE_KEY=...
 1. Deploy
 2. Verifique logs
 3. App executa `prisma db push` no start para sincronizar schema
+4. Se o Prisma não conectar no banco, o container deve falhar no boot. Corrija a `DATABASE_URL` antes de tentar logar.
 
 ## 5. Troubleshooting
-- Erro de banco: confira `DATABASE_URL` com `?sslmode=require`
+- Erro de banco: confira `DATABASE_URL` com `?sslmode=require` e prefira o `Session pooler` no EasyPanel
+- Erros comuns de log quando a conexão está errada: `P1001`, `Can't reach database server`, `PrismaClientInitializationError`
 - Erro OAuth: confira callback URL no Google
 - Erro n8n: confira URL/API key/workflow id

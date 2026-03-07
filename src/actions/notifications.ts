@@ -1,8 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/supabase-auth";
 import { revalidatePath } from "next/cache";
 
 export async function createNotification({
@@ -34,7 +33,7 @@ export async function createNotification({
 
 
 export async function getNotifications() {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.email) {
         return [];
@@ -60,7 +59,7 @@ export async function getNotifications() {
 }
 
 export async function getUnreadCount() {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.email) {
         return 0;
@@ -83,7 +82,7 @@ export async function getUnreadCount() {
 }
 
 export async function markAsRead(notificationId: string) {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.email) {
         return { error: "Not authenticated" };
@@ -99,7 +98,7 @@ export async function markAsRead(notificationId: string) {
 }
 
 export async function markAllAsRead() {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.email) {
         return { error: "Not authenticated" };

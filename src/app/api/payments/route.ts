@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/supabase-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { createPaymentSchema, paymentQuerySchema } from "@/lib/schemas";
@@ -37,7 +36,7 @@ async function hasAdminAccess(user: { id?: string | null; role?: string | null; 
 
 async function handleGet(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
@@ -99,7 +98,7 @@ async function handleGet(request: NextRequest) {
 
 async function handlePost(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });

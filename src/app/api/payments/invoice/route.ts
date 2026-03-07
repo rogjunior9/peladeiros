@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/supabase-auth";
 import { prisma } from "@/lib/prisma";
 import { pagseguro } from "@/lib/pagseguro";
 
@@ -26,7 +25,7 @@ async function hasAdminAccess(user: { id?: string | null; role?: string | null; 
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/supabase-auth";
 import { prisma } from "@/lib/prisma";
 import { pagseguro } from "@/lib/pagseguro";
 import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
@@ -14,7 +13,7 @@ async function handlePost(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
@@ -313,7 +312,7 @@ async function handleDelete(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });

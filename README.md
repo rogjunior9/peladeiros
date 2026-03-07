@@ -17,7 +17,7 @@ Sistema para gestão de peladas com autenticação Google, controle de jogos, co
 
 ## Configuração
 Preencha um único arquivo `.env` com:
-- `DATABASE_URL`
+- `DATABASE_URL` do Supabase (preferencialmente a URL do `Session pooler` em ambientes como EasyPanel/VPS)
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
@@ -38,7 +38,8 @@ npm run dev
 
 ## Banco de dados
 - Este projeto usa somente Supabase.
-- Local e produção devem usar o mesmo `DATABASE_URL` (Supabase).
+- Em produção com EasyPanel/VPS, prefira a string do `Session pooler` do Supabase.
+- A URL direta `db.<project-ref>.supabase.co` pode falhar em hosts sem IPv6 e quebrar o login do NextAuth.
 
 ## Scripts
 ```bash
