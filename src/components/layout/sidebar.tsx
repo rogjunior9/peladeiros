@@ -11,9 +11,10 @@ import {
   Calendar,
   MapPin,
   DollarSign,
+  Wallet,
+  Trophy,
   Settings,
   X,
-  Receipt,
   UserCog,
   User,
   LogOut,
@@ -40,7 +41,8 @@ const navigation = [
   { name: "Jogadores", href: "/players", icon: Users },
   { name: "Locais", href: "/venues", icon: MapPin, adminOnly: true },
   { name: "Financeiro", href: "/finance", icon: DollarSign },
-  { name: "Pagamentos", href: "/payments", icon: Receipt },
+  { name: "Mensalistas", href: "/monthly", icon: Wallet, adminOnly: true },
+  { name: "Premiações", href: "/awards", icon: Trophy },
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 

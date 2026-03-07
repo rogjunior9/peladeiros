@@ -7,6 +7,8 @@ import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { confirmGameSchema } from "@/lib/schemas";
 import { ConfirmationStatus } from "@prisma/client";
 
+const MAX_GOALKEEPERS = Number(process.env.MAX_GOALKEEPERS_PER_GAME || "4");
+
 async function handlePost(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -79,20 +81,42 @@ async function handlePost(
           targetStatus = "WAITING_LIST";
         }
 
-        // Se for para CONFIRMAR de fato, checa lotacao
+        // Se for para CONFIRMAR de fato, checa lotacao por tipo
         if (targetStatus === "CONFIRMED") {
-          // Contagem atual DENTRO da transação (com lock)
-          const confirmedCount = await tx.gameConfirmation.count({
-            where: {
-              gameId: params.id,
-              status: "CONFIRMED",
-            },
-          });
+          const isGoalkeeper = playerType === "GOALKEEPER";
 
-          if (confirmedCount >= game.maxPlayers) {
-            // Se ja existe e esta CONFIRMED, nao faz nada
-            if (!existingConfirmation || existingConfirmation.status !== "CONFIRMED") {
-              throw new Error("Jogo lotado");
+          if (isGoalkeeper) {
+            const confirmedGoalkeepers = await tx.gameConfirmation.count({
+              where: {
+                gameId: params.id,
+                status: "CONFIRMED",
+                user: { playerType: "GOALKEEPER" },
+              },
+            });
+
+            if (confirmedGoalkeepers >= MAX_GOALKEEPERS) {
+              if (!existingConfirmation || existingConfirmation.status !== "CONFIRMED") {
+                throw new Error("Limite de goleiros atingido");
+              }
+            }
+          } else {
+            const confirmedLinePlayers = await tx.gameConfirmation.count({
+              where: {
+                gameId: params.id,
+                status: "CONFIRMED",
+                user: {
+                  OR: [
+                    { playerType: "MONTHLY" },
+                    { playerType: "CASUAL" },
+                  ],
+                },
+              },
+            });
+
+            if (confirmedLinePlayers >= game.maxPlayers) {
+              if (!existingConfirmation || existingConfirmation.status !== "CONFIRMED") {
+                throw new Error("Jogo lotado");
+              }
             }
           }
         }
@@ -158,6 +182,10 @@ async function handlePost(
     
     if (error.message === "Jogo lotado") {
       return NextResponse.json({ error: "Jogo lotado" }, { status: 400 });
+    }
+
+    if (error.message === "Limite de goleiros atingido") {
+      return NextResponse.json({ error: "Limite de goleiros atingido" }, { status: 400 });
     }
     
     return NextResponse.json(

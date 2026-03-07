@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +17,7 @@ export async function GET() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Get player counts
+    // Count active users that participate as players (ADMIN can also play)
     const [totalPlayers, monthlyPlayers, casualPlayers, goalkeepers] = await Promise.all([
       prisma.user.count({ where: { isActive: true } }),
       prisma.user.count({ where: { isActive: true, playerType: "MONTHLY" } }),

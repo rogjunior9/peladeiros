@@ -7,6 +7,11 @@ import { userQuerySchema } from "@/lib/schemas";
 
 export const dynamic = 'force-dynamic';
 
+function buildAvatarUrl(name?: string | null, email?: string | null) {
+  const seed = name || email || "Jogador";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(seed)}&background=111827&color=ffffff&size=256`;
+}
+
 async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,9 +23,12 @@ async function handleGet(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     
     // Validar query params
+    const playerTypeParam = searchParams.get("playerType") ?? undefined;
+    const isActiveParam = searchParams.get("isActive") ?? undefined;
+
     const queryResult = userQuerySchema.safeParse({
-      playerType: searchParams.get("playerType"),
-      isActive: searchParams.get("isActive"),
+      playerType: playerTypeParam,
+      isActive: isActiveParam,
     });
 
     if (!queryResult.success) {
@@ -76,7 +84,7 @@ async function handleGet(request: NextRequest) {
       id: user.id,
       name: user.name,
       email: user.email,
-      image: user.image,
+      image: user.image || buildAvatarUrl(user.name, user.email),
       phone: user.phone,
       role: user.role,
       playerType: user.playerType,

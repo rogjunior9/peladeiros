@@ -4,7 +4,35 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { createGameSchema, gameQuerySchema } from "@/lib/schemas";
-import { addDays, parseISO, format } from "date-fns";
+import { addDays } from "date-fns";
+
+function normalizeGameInput(raw: any) {
+  const maxPlayersRaw = raw?.maxPlayers;
+  const pricePerPlayerRaw = raw?.pricePerPlayer;
+  const priceGoalkeeperRaw = raw?.priceGoalkeeper;
+
+  return {
+    ...raw,
+    title: raw?.title?.trim?.(),
+    description: raw?.description?.trim?.() || undefined,
+    date: raw?.date?.trim?.(),
+    startTime: raw?.startTime?.trim?.(),
+    endTime: raw?.endTime?.trim?.(),
+    maxPlayers:
+      maxPlayersRaw === "" || maxPlayersRaw === null || maxPlayersRaw === undefined
+        ? undefined
+        : Number(maxPlayersRaw),
+    pricePerPlayer:
+      pricePerPlayerRaw === "" || pricePerPlayerRaw === null || pricePerPlayerRaw === undefined
+        ? undefined
+        : Number(pricePerPlayerRaw),
+    priceGoalkeeper:
+      priceGoalkeeperRaw === "" || priceGoalkeeperRaw === null || priceGoalkeeperRaw === undefined
+        ? undefined
+        : Number(priceGoalkeeperRaw),
+    isRecurring: Boolean(raw?.isRecurring),
+  };
+}
 
 async function handleGet(request: NextRequest) {
   try {
@@ -18,7 +46,7 @@ async function handleGet(request: NextRequest) {
     
     // Validar query params
     const queryResult = gameQuerySchema.safeParse({
-      upcoming: searchParams.get("upcoming"),
+      upcoming: searchParams.get("upcoming") ?? undefined,
     });
 
     if (!queryResult.success) {
@@ -77,9 +105,10 @@ async function handlePost(request: NextRequest) {
     }
 
     const body = await request.json();
+    const normalizedBody = normalizeGameInput(body);
     
     // Validar com Zod
-    const validationResult = createGameSchema.safeParse(body);
+    const validationResult = createGameSchema.safeParse(normalizedBody);
     
     if (!validationResult.success) {
       return NextResponse.json(

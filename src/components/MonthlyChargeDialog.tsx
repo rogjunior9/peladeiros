@@ -12,9 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, RefreshCw, Check, CalendarDays, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, RefreshCw, CalendarDays, Wallet } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UserStatus {
     id: string;
@@ -54,6 +56,13 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [monthlyFeeAmount, setMonthlyFeeAmount] = useState(60);
+    const [savingManualByUserId, setSavingManualByUserId] = useState<string | null>(null);
+    const [generatingUserChargeByUserId, setGeneratingUserChargeByUserId] = useState<string | null>(null);
+    const [cpfDialogOpen, setCpfDialogOpen] = useState(false);
+    const [cpfValue, setCpfValue] = useState("");
+    const [cpfSaving, setCpfSaving] = useState(false);
+    const [pendingChargeUser, setPendingChargeUser] = useState<UserStatus | null>(null);
     const { toast } = useToast();
 
     const loadData = useCallback(async () => {
@@ -78,6 +87,23 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
             loadData();
         }
     }, [open, selectedMonth, loadData]);
+
+    useEffect(() => {
+        if (!open) return;
+        const loadSettings = async () => {
+            try {
+                const response = await fetch("/api/settings");
+                if (!response.ok) return;
+                const data = await response.json();
+                if (typeof data?.monthlyFee === "number" && data.monthlyFee > 0) {
+                    setMonthlyFeeAmount(data.monthlyFee);
+                }
+            } catch {
+                // ignore
+            }
+        };
+        loadSettings();
+    }, [open]);
 
     const updateUserType = async (userId: string, newType: string) => {
         // Optimistic Update
@@ -119,6 +145,125 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
         }
     };
 
+    const handleManualMarkPaid = async (userId: string) => {
+        setSavingManualByUserId(userId);
+        try {
+            const response = await fetch("/api/finance/monthly-fees", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId,
+                    month: selectedMonth,
+                    amount: monthlyFeeAmount,
+                    method: "CASH",
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data?.error || "Falha ao registrar pagamento manual");
+            }
+
+            toast({
+                title: "Mensalidade confirmada",
+                variant: "success",
+            });
+            await loadData();
+        } catch (error: any) {
+            toast({
+                title: "Erro",
+                description: error.message || "Falha ao marcar como pago",
+                variant: "destructive",
+            });
+        } finally {
+            setSavingManualByUserId(null);
+        }
+    };
+
+    const generateUserCharge = async (user: UserStatus, canPromptCpf = true) => {
+        setGeneratingUserChargeByUserId(user.id);
+        try {
+            const response = await fetch("/api/finance/monthly-charge-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    month: selectedMonth,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data?.error || "Falha ao gerar cobrança");
+            }
+
+            toast({
+                title: "Cobrança gerada",
+                description: `PIX pendente criado para ${user.name}.`,
+                variant: "success",
+            });
+
+            await loadData();
+        } catch (error: any) {
+            const message = error.message || "Falha ao gerar cobrança";
+            if (canPromptCpf && /cpf/i.test(message)) {
+                setPendingChargeUser(user);
+                setCpfValue((user.document || "").replace(/\D/g, ""));
+                setCpfDialogOpen(true);
+                return;
+            }
+            toast({
+                title: "Erro",
+                description: message,
+                variant: "destructive",
+            });
+        } finally {
+            setGeneratingUserChargeByUserId(null);
+        }
+    };
+
+    const handleGenerateUserCharge = async (user: UserStatus) => {
+        await generateUserCharge(user, true);
+    };
+
+    const handleSaveCpfAndRetry = async () => {
+        if (!pendingChargeUser) return;
+        const digits = cpfValue.replace(/\D/g, "");
+        if (digits.length !== 11) {
+            toast({
+                title: "CPF inválido",
+                description: "Informe um CPF com 11 dígitos.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setCpfSaving(true);
+        try {
+            const response = await fetch(`/api/users/${pendingChargeUser.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ document: digits }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data?.error || "Falha ao salvar CPF");
+            }
+
+            setCpfDialogOpen(false);
+            await loadData();
+            await generateUserCharge({ ...pendingChargeUser, document: digits }, false);
+        } catch (error: any) {
+            toast({
+                title: "Erro",
+                description: error.message || "Falha ao salvar CPF",
+                variant: "destructive",
+            });
+        } finally {
+            setCpfSaving(false);
+        }
+    };
+
     const formatCPF = (cpf: string | null) => {
         if (!cpf) return "-";
         return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
@@ -131,7 +276,7 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
 
         const payment = user.payments[0];
         if (!payment) return <Badge variant="outline" className="text-slate-600 border-slate-800">Não Gerado</Badge>;
-        if (payment.status === "PAID") return <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/25">Pago</Badge>;
+        if (payment.status === "CONFIRMED") return <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/25">Pago</Badge>;
         if (payment.status === "PENDING") return <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/50 hover:bg-amber-500/25">Pendente</Badge>;
         return <Badge variant="secondary">{payment.status}</Badge>;
     };
@@ -140,6 +285,100 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
     const pendingCount = users.filter(u => u.playerType === 'MONTHLY' && !u.payments[0]).length;
 
     const monthOptions = getMonthOptions();
+    const monthlyUsers = users.filter((u) => u.playerType === "MONTHLY");
+    const pendingMonthlyUsers = monthlyUsers.filter((u) => !u.payments[0] || u.payments[0].status !== "CONFIRMED");
+
+    const renderRows = (list: UserStatus[]) => (
+        <Table>
+            <TableHeader className="bg-slate-900/50 sticky top-0 z-10 backdrop-blur-sm">
+                <TableRow className="border-slate-800/50 hover:bg-transparent">
+                    <TableHead className="text-slate-400 pl-6">Jogador</TableHead>
+                    <TableHead className="text-slate-400">CPF</TableHead>
+                    <TableHead className="text-slate-400">Tipo</TableHead>
+                    <TableHead className="text-slate-400">Status Mês</TableHead>
+                    <TableHead className="text-slate-400 text-right pr-6">Ações</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {list.map((user) => {
+                    const payment = user.payments[0];
+                    const isMonthly = user.playerType === "MONTHLY";
+                    const isPaid = payment?.status === "CONFIRMED";
+                    return (
+                        <TableRow key={user.id} className="border-slate-800/30 hover:bg-slate-900/40 transition-colors">
+                            <TableCell className="font-medium flex items-center gap-3 pl-6">
+                                <Avatar className="h-9 w-9 border border-slate-800">
+                                    <AvatarImage src={user.image || ""} />
+                                    <AvatarFallback className="bg-slate-900 text-amber-500">{user.name?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-slate-200">{user.name}</span>
+                            </TableCell>
+                            <TableCell className="text-slate-500 font-mono text-xs">
+                                {formatCPF(user.document)}
+                            </TableCell>
+                            <TableCell>
+                                <Select
+                                    value={user.playerType || "CASUAL"}
+                                    onValueChange={(v) => updateUserType(user.id, v)}
+                                >
+                                    <SelectTrigger className={`w-[130px] h-8 border-slate-800 text-xs transition-colors ${user.playerType === 'MONTHLY' ? 'bg-amber-950/20 text-amber-500 border-amber-900/50' :
+                                        user.playerType === 'GOALKEEPER' ? 'bg-indigo-950/20 text-indigo-400 border-indigo-900/50' :
+                                            'bg-slate-900 text-slate-400'
+                                        }`}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                        <SelectItem value="MONTHLY" className="text-amber-500 focus:text-amber-400 focus:bg-amber-950/20">Mensalista</SelectItem>
+                                        <SelectItem value="CASUAL">Avulso</SelectItem>
+                                        <SelectItem value="GOALKEEPER" className="text-indigo-400 focus:text-indigo-300 focus:bg-indigo-950/20">Goleiro</SelectItem>
+                                        <SelectItem value="GUEST">Convidado</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(user)}</TableCell>
+                            <TableCell className="pr-6">
+                                {isMonthly ? (
+                                    <div className="flex justify-end gap-2">
+                                        {!isPaid && (
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 border-amber-900 text-amber-400 text-xs uppercase tracking-wider"
+                                                    disabled={savingManualByUserId === user.id}
+                                                    onClick={() => handleManualMarkPaid(user.id)}
+                                                >
+                                                    {savingManualByUserId === user.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Marcar Pago"}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 border-blue-900 text-blue-400 text-xs uppercase tracking-wider"
+                                                    disabled={generatingUserChargeByUserId === user.id}
+                                                    onClick={() => handleGenerateUserCharge(user)}
+                                                >
+                                                    {generatingUserChargeByUserId === user.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Gerar Cobrança"}
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-right text-[10px] uppercase tracking-widest text-slate-600">-</div>
+                                )}
+                            </TableCell>
+                        </TableRow>
+                    );
+                })}
+                {list.length === 0 && (
+                    <TableRow className="border-slate-800/30">
+                        <TableCell colSpan={5} className="text-center py-10 text-slate-500 text-sm">
+                            Nenhum jogador encontrado nesta aba.
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+        </Table>
+    );
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,54 +424,24 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
                             <span className="text-slate-500 text-sm">Carregando dados financeiros...</span>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader className="bg-slate-900/50 sticky top-0 z-10 backdrop-blur-sm">
-                                <TableRow className="border-slate-800/50 hover:bg-transparent">
-                                    <TableHead className="text-slate-400 pl-6">Jogador</TableHead>
-                                    <TableHead className="text-slate-400">CPF</TableHead>
-                                    <TableHead className="text-slate-400">Tipo</TableHead>
-                                    <TableHead className="text-slate-400">Status Mês</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id} className="border-slate-800/30 hover:bg-slate-900/40 transition-colors">
-                                        <TableCell className="font-medium flex items-center gap-3 pl-6">
-                                            <Avatar className="h-9 w-9 border border-slate-800">
-                                                <AvatarImage src={user.image || ""} />
-                                                <AvatarFallback className="bg-slate-900 text-amber-500">{user.name?.[0]}</AvatarFallback>
-                                            </Avatar>
-                                            <span className="text-slate-200">{user.name}</span>
-                                        </TableCell>
-                                        <TableCell className="text-slate-500 font-mono text-xs">
-                                            {formatCPF(user.document)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={user.playerType || "CASUAL"}
-                                                onValueChange={(v) => updateUserType(user.id, v)}
-                                            >
-                                                <SelectTrigger className={`w-[130px] h-8 border-slate-800 text-xs transition-colors ${user.playerType === 'MONTHLY' ? 'bg-amber-950/20 text-amber-500 border-amber-900/50' :
-                                                        user.playerType === 'GOALKEEPER' ? 'bg-indigo-950/20 text-indigo-400 border-indigo-900/50' :
-                                                            'bg-slate-900 text-slate-400'
-                                                    }`}>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                    <SelectItem value="MONTHLY" className="text-amber-500 focus:text-amber-400 focus:bg-amber-950/20">Mensalista</SelectItem>
-                                                    <SelectItem value="CASUAL">Avulso</SelectItem>
-                                                    <SelectItem value="GOALKEEPER" className="text-indigo-400 focus:text-indigo-300 focus:bg-indigo-950/20">Goleiro</SelectItem>
-                                                    <SelectItem value="GUEST">Convidado</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>
-                                            {getStatusBadge(user)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <Tabs defaultValue="monthly" className="w-full">
+                            <div className="px-6 py-3 border-b border-slate-900/60 bg-slate-950/80">
+                                <TabsList className="bg-slate-900/70 border border-slate-800">
+                                    <TabsTrigger value="monthly" className="uppercase text-[10px] tracking-widest font-bold">Mensalistas</TabsTrigger>
+                                    <TabsTrigger value="pending" className="uppercase text-[10px] tracking-widest font-bold">Pendentes</TabsTrigger>
+                                    <TabsTrigger value="all" className="uppercase text-[10px] tracking-widest font-bold">Todos</TabsTrigger>
+                                </TabsList>
+                            </div>
+                            <TabsContent value="monthly" className="m-0">
+                                {renderRows(monthlyUsers)}
+                            </TabsContent>
+                            <TabsContent value="pending" className="m-0">
+                                {renderRows(pendingMonthlyUsers)}
+                            </TabsContent>
+                            <TabsContent value="all" className="m-0">
+                                {renderRows(users)}
+                            </TabsContent>
+                        </Tabs>
                     )}
                 </div>
 
@@ -266,6 +475,34 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
                     </div>
                 </DialogFooter>
             </DialogContent>
+            <Dialog open={cpfDialogOpen} onOpenChange={setCpfDialogOpen}>
+                <DialogContent className="max-w-md bg-slate-950 border-slate-900 text-slate-100">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold">CPF obrigatório</DialogTitle>
+                        <DialogDescription className="text-slate-500">
+                            Para gerar cobrança no PagSeguro, informe o CPF de {pendingChargeUser?.name || "jogador"}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 py-2">
+                        <label className="text-xs uppercase tracking-widest text-slate-500">CPF (11 dígitos)</label>
+                        <Input
+                            value={cpfValue}
+                            onChange={(e) => setCpfValue(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                            placeholder="00000000000"
+                            className="bg-slate-900 border-slate-800 text-slate-100"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setCpfDialogOpen(false)} className="hover:bg-slate-800">
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleSaveCpfAndRetry} disabled={cpfSaving} className="bg-amber-500 hover:bg-amber-600 text-slate-950">
+                            {cpfSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Salvar e Gerar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     );
 }

@@ -6,6 +6,35 @@ import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { createPaymentSchema, paymentQuerySchema } from "@/lib/schemas";
 import { ZodError } from "zod";
 
+async function hasAdminAccess(user: { id?: string | null; role?: string | null; email?: string | null }) {
+  if (user?.role === "ADMIN") return true;
+  const adminEmails = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (user?.email && adminEmails.includes(user.email.toLowerCase())) return true;
+
+  // Fallback robusto: confere role direto no banco por id e email
+  if (user?.id) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, email: true },
+    });
+    if (dbUser?.role === "ADMIN") return true;
+    if (dbUser?.email && adminEmails.includes(dbUser.email.toLowerCase())) return true;
+  }
+
+  if (user?.email) {
+    const dbUserByEmail = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { role: true },
+    });
+    if (dbUserByEmail?.role === "ADMIN") return true;
+  }
+
+  return false;
+}
+
 async function handleGet(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -33,8 +62,8 @@ async function handleGet(request: NextRequest) {
 
     const { status, userId, gameId, month } = queryResult.data;
 
-    // Se não for admin, só pode ver seus próprios pagamentos
-    const effectiveUserId = session.user.role !== "ADMIN" ? session.user.id : userId;
+    const isAdmin = await hasAdminAccess(session.user);
+    const effectiveUserId = isAdmin ? userId : undefined;
 
     const payments = await prisma.payment.findMany({
       where: {
@@ -91,7 +120,9 @@ async function handlePost(request: NextRequest) {
     const { amount, method, userId, gameId, referenceMonth, notes, status: paymentStatus } = validationResult.data;
 
     // Only admin can create CASH payments with CONFIRMED status
-    if (method === "CASH" && session.user.role !== "ADMIN") {
+    const isAdmin = await hasAdminAccess(session.user);
+
+    if (method === "CASH" && !isAdmin) {
       return NextResponse.json(
         { error: "Apenas administradores podem registrar pagamentos em dinheiro" },
         { status: 403 }
@@ -99,7 +130,7 @@ async function handlePost(request: NextRequest) {
     }
 
     // Se não for admin, só pode criar pagamento para si mesmo
-    const effectiveUserId = session.user.role !== "ADMIN" 
+    const effectiveUserId = !isAdmin
       ? session.user.id 
       : (userId || session.user.id);
 
@@ -122,16 +153,53 @@ async function handlePost(request: NextRequest) {
       }
     }
 
+    const targetStatus = method === "CASH" && isAdmin ? (paymentStatus || "CONFIRMED") : "PENDING";
+    const targetPaidAt = targetStatus === "CONFIRMED" ? new Date() : null;
+
+    // Coerência: para o mesmo jogador+jogo (ou mesmo mês de referência), atualizar registro existente
+    // em vez de criar duplicado com status conflitante.
+    const existingPayment = await prisma.payment.findFirst({
+      where: {
+        userId: effectiveUserId,
+        ...(gameId
+          ? { gameId }
+          : referenceMonth
+            ? { referenceMonth, gameId: null }
+            : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (existingPayment) {
+      const payment = await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          amount,
+          method,
+          status: targetStatus,
+          notes,
+          paidAt: targetPaidAt,
+        },
+        include: {
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      });
+
+      return NextResponse.json(payment);
+    }
+
     const payment = await prisma.payment.create({
       data: {
         amount,
         method,
-        status: method === "CASH" && session.user.role === "ADMIN" ? (paymentStatus || "CONFIRMED") : "PENDING",
+        status: targetStatus,
         userId: effectiveUserId,
         gameId,
         referenceMonth,
         notes,
-        paidAt: method === "CASH" && paymentStatus === "CONFIRMED" ? new Date() : null,
+        paidAt: targetPaidAt,
       },
       include: {
         user: {

@@ -41,7 +41,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CpfDialog } from "@/components/CpfDialog";
+
+const MAX_GOALKEEPERS = 4;
 
 // Tipos (mantidos)
 interface Game {
@@ -65,14 +75,34 @@ interface Game {
   confirmations: Array<{
     id: string;
     status: string;
-    user: {
+    isGuest?: boolean;
+    guestName?: string | null;
+    user?: {
       id: string;
       name: string;
       email: string;
       image: string;
       playerType: string;
-    };
+    } | null;
   }>;
+  payments: Array<{
+    id: string;
+    userId: string;
+    status: string;
+    amount: number;
+    method: string;
+  }>;
+  monthlyPaidUserIds?: string[];
+  referenceMonth?: string;
+}
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  playerType: string;
+  isActive: boolean;
 }
 
 export default function GameDetailPage() {
@@ -86,6 +116,21 @@ export default function GameDetailPage() {
   const [confirming, setConfirming] = useState(false);
   const [showCpfDialog, setShowCpfDialog] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [guestPlayerType, setGuestPlayerType] = useState<"CASUAL" | "GOALKEEPER">("CASUAL");
+  const [monthlyFeeAmount, setMonthlyFeeAmount] = useState(60);
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
+  const [chargePhone, setChargePhone] = useState("");
+  const [chargeLoading, setChargeLoading] = useState(false);
+  const [selectedChargeParticipant, setSelectedChargeParticipant] = useState<{
+    userId: string;
+    userName: string;
+    playerType: string;
+    amount: number;
+  } | null>(null);
 
   const isAdmin = session?.user?.role === "ADMIN";
   const gameId = params.id as string;
@@ -101,7 +146,7 @@ export default function GameDetailPage() {
 
   const fetchGame = useCallback(async () => {
     try {
-      const response = await fetch(`/api/games/${gameId}`);
+      const response = await fetch(`/api/games/${gameId}`, { cache: "no-store" });
       if (response.ok) {
         setGame(await response.json());
       } else {
@@ -118,6 +163,39 @@ export default function GameDetailPage() {
     fetchGame();
     fetchUserProfile();
   }, [fetchGame, fetchUserProfile]);
+
+  const fetchAdminUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const response = await fetch("/api/users?isActive=true");
+      if (response.ok) {
+        setAdminUsers(await response.json());
+      }
+    } catch (error) {
+      console.error("Erro ao carregar usuários:", error);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    fetchAdminUsers();
+  }, [fetchAdminUsers]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch("/api/settings");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (typeof data?.monthlyFee === "number" && data.monthlyFee > 0) {
+          setMonthlyFeeAmount(data.monthlyFee);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar configuração de mensalidade:", error);
+      }
+    };
+    fetchSettings();
+  }, [isAdmin]);
 
   const executeConfirmation = async (status: string) => {
     setConfirming(true);
@@ -209,6 +287,266 @@ export default function GameDetailPage() {
     }
   };
 
+  const getPaymentForUser = useCallback((userId: string) => {
+    if (!game) return null;
+    const userPayments = game.payments.filter((payment) => payment.userId === userId);
+    if (userPayments.length === 0) return null;
+
+    const confirmedPayment = userPayments.find((payment) => payment.status === "CONFIRMED");
+    if (confirmedPayment) return confirmedPayment;
+
+    return userPayments[0];
+  }, [game]);
+
+  const isMonthlyPaidForGame = useCallback((userId: string, playerType?: string) => {
+    if (!game || playerType !== "MONTHLY") return false;
+    return (game.monthlyPaidUserIds || []).includes(userId);
+  }, [game]);
+
+  const handleAdminAddParticipant = async () => {
+    if (!selectedUserId) return;
+    setAdminSaving(true);
+    try {
+      const response = await fetch(`/api/games/${gameId}/participants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUserId, status: "CONFIRMED" }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Falha ao adicionar participante");
+      }
+      toast({ title: "Participante adicionado", variant: "success" });
+      setSelectedUserId("");
+      await fetchGame();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
+
+  const handleAdminAddGuest = async () => {
+    if (!guestName.trim()) return;
+    setAdminSaving(true);
+    try {
+      const response = await fetch(`/api/games/${gameId}/participants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guestName: guestName.trim(),
+          guestPlayerType,
+          status: "CONFIRMED",
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Falha ao adicionar convidado");
+      }
+      toast({ title: "Convidado adicionado", variant: "success" });
+      setGuestName("");
+      setGuestPlayerType("CASUAL");
+      await fetchGame();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
+
+  const handleAdminRemoveParticipant = async (userId: string) => {
+    setAdminSaving(true);
+    try {
+      const response = await fetch(`/api/games/${gameId}/participants?userId=${userId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Falha ao remover participante");
+      }
+      toast({ title: "Participação removida", variant: "success" });
+      await fetchGame();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
+
+  const handleAdminMarkPaid = async (userId: string, playerType: string) => {
+    if (!game) return;
+    const amount = playerType === "GOALKEEPER" ? (game.priceGoalkeeper || 0) : game.pricePerPlayer;
+    const currentPayment = getPaymentForUser(userId);
+    const isMonthly = playerType === "MONTHLY";
+
+    setAdminSaving(true);
+    try {
+      if (isMonthly) {
+        const response = await fetch("/api/finance/monthly-fees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            month: game.referenceMonth || game.date.slice(0, 7),
+            amount: monthlyFeeAmount,
+            method: "CASH",
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Falha ao registrar mensalidade");
+        }
+
+        toast({
+          title: "Mensalidade confirmada",
+          description: "As peladas do mês para esse jogador serão consideradas pagas.",
+          variant: "success",
+        });
+        await fetchGame();
+        return;
+      }
+
+      if (currentPayment) {
+        const response = await fetch(`/api/payments/${currentPayment.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "CONFIRMED",
+            notes: "Pagamento manual confirmado pelo admin",
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Falha ao atualizar pagamento");
+        }
+      } else {
+        const response = await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            gameId: game.id,
+            amount,
+            method: "CASH",
+            status: "CONFIRMED",
+            notes: "Pagamento manual registrado pelo admin",
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Falha ao registrar pagamento");
+        }
+      }
+
+      toast({ title: "Pagamento confirmado", variant: "success" });
+      await fetchGame();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
+
+  const handleAdminUndoManualPayment = async (paymentId: string) => {
+    setAdminSaving(true);
+    try {
+      const response = await fetch(`/api/payments/${paymentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "PENDING",
+          notes: "Pagamento manual desfeito pelo admin",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Falha ao desfazer pagamento");
+      }
+
+      toast({ title: "Pagamento desfeito", variant: "success" });
+      await fetchGame();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
+
+  const normalizePhoneForWhatsApp = (raw: string) => {
+    const digits = (raw || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("55")) return digits;
+    return `55${digits}`;
+  };
+
+  const openChargeDialog = (userId: string, userName: string, playerType: string) => {
+    if (!game) return;
+    const user = adminUsers.find((u) => u.id === userId);
+    setChargePhone(user?.phone || "");
+    setSelectedChargeParticipant({
+      userId,
+      userName,
+      playerType,
+      amount: playerType === "GOALKEEPER" ? (game.priceGoalkeeper || 0) : game.pricePerPlayer,
+    });
+    setChargeDialogOpen(true);
+  };
+
+  const handleGenerateInvoice = async () => {
+    if (!selectedChargeParticipant || !game) return;
+    setChargeLoading(true);
+    try {
+      const response = await fetch("/api/payments/invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedChargeParticipant.userId,
+          gameId: game.id,
+          amount: selectedChargeParticipant.amount,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Falha ao gerar invoice");
+      }
+
+      if (data?.invoiceUrl) {
+        window.open(data.invoiceUrl, "_blank", "noopener,noreferrer");
+      }
+
+      toast({
+        title: "Invoice gerado",
+        description: "Link do PagSeguro aberto em nova aba.",
+        variant: "success",
+      });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setChargeLoading(false);
+    }
+  };
+
+  const handleOpenWhatsAppCharge = () => {
+    if (!selectedChargeParticipant || !game) return;
+
+    const playerName = selectedChargeParticipant.userName;
+    const amount = selectedChargeParticipant.amount.toFixed(2).replace(".", ",");
+    const date = formatDate(game.date);
+    const message =
+      `Fala, ${playerName}! Tudo bem?%0A` +
+      `Sua cobrança da pelada ${game.title} (${date}) é de R$ ${amount}.%0A` +
+      `Faz o PIX para contato@rogeriojunior.com.br e me envia o comprovante.`;
+
+    const normalizedPhone = normalizePhoneForWhatsApp(chargePhone);
+    const whatsappUrl = normalizedPhone
+      ? `https://wa.me/${normalizedPhone}?text=${message}`
+      : `https://wa.me/?text=${message}`;
+
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    setChargeDialogOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
@@ -221,9 +559,30 @@ export default function GameDetailPage() {
 
   const myConfirmation = game.confirmations.find(c => c.user?.id === session?.user?.id);
   const confirmedPlayers = game.confirmations.filter(c => c.status === "CONFIRMED");
+  const confirmedGoalkeepers = confirmedPlayers.filter(c => c.user?.playerType === "GOALKEEPER");
+  const confirmedLinePlayers = confirmedPlayers.filter(c => c.user?.playerType !== "GOALKEEPER");
   const waitingPlayers = game.confirmations.filter(c => c.status === "WAITING_LIST");
   const isPast = new Date(game.date) < new Date();
-  const isFull = confirmedPlayers.length >= game.maxPlayers;
+  const isGoalkeeperUser = session?.user?.playerType === "GOALKEEPER";
+  const isFull = isGoalkeeperUser
+    ? confirmedGoalkeepers.length >= MAX_GOALKEEPERS
+    : confirmedLinePlayers.length >= game.maxPlayers;
+  const availableUsers = adminUsers.filter(
+    (user) => !confirmedPlayers.some((confirmation) => confirmation.user?.id === user.id)
+  );
+  const paidTotal = confirmedPlayers.reduce((acc, confirmation) => {
+    if (!confirmation.user?.id) return acc;
+    const isGoalkeeper = confirmation.user.playerType === "GOALKEEPER";
+    const goalkeeperAmount = game.priceGoalkeeper || 0;
+    if (isGoalkeeper && goalkeeperAmount <= 0) return acc;
+    if (confirmation.user.playerType === "MONTHLY") return acc;
+    const payment = getPaymentForUser(confirmation.user.id);
+    if (payment?.status === "CONFIRMED") {
+      const defaultAmount = isGoalkeeper ? goalkeeperAmount : game.pricePerPlayer;
+      return acc + (typeof payment.amount === "number" && payment.amount > 0 ? payment.amount : defaultAmount);
+    }
+    return acc;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-accent/30 selection:text-accent-foreground pb-24">
@@ -338,8 +697,9 @@ export default function GameDetailPage() {
               <div className="bg-[#080808] border border-white/5 p-6 rounded-xl flex flex-col items-center justify-center text-center gap-3 hover:border-accent/30 transition-all duration-300 group">
                 <Users className="h-6 w-6 text-zinc-500 group-hover:text-accent transition-colors" />
                 <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Vagas</p>
-                  <p className="text-xl font-display font-bold text-white"><span className="text-accent">{confirmedPlayers.length}</span>/{game.maxPlayers}</p>
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Vagas Linha</p>
+                  <p className="text-xl font-display font-bold text-white"><span className="text-accent">{confirmedLinePlayers.length}</span>/{game.maxPlayers}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Goleiros {confirmedGoalkeepers.length}/{MAX_GOALKEEPERS}</p>
                 </div>
               </div>
 
@@ -359,10 +719,64 @@ export default function GameDetailPage() {
                   <span className="w-1 h-6 bg-accent block rounded-full" />
                   Confirmados
                 </h3>
-                <Badge variant="outline" className="border-zinc-800 text-zinc-400 uppercase tracking-widest">
-                  {confirmedPlayers.length} Jogadores
-                </Badge>
-              </div>
+                  <Badge variant="outline" className="border-zinc-800 text-zinc-400 uppercase tracking-widest">
+                    {confirmedPlayers.length} Confirmados
+                  </Badge>
+                </div>
+
+              {isAdmin && (
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4">
+                  <p className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Adicionar participante manualmente</p>
+                  <div className="flex flex-col md:flex-row gap-2 mb-3">
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      className="h-10 bg-black border border-zinc-800 rounded-md px-3 text-sm text-white flex-1"
+                    >
+                      <option value="">Selecione um jogador</option>
+                      {availableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({getPlayerTypeLabel(user.playerType)})
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      onClick={handleAdminAddParticipant}
+                      disabled={!selectedUserId || adminSaving}
+                      className="h-10 bg-accent text-black hover:bg-accent/90 uppercase tracking-wider"
+                    >
+                      Adicionar
+                    </Button>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <input
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      placeholder="Nome do jogador não cadastrado"
+                      className="h-10 bg-black border border-zinc-800 rounded-md px-3 text-sm text-white flex-1"
+                    />
+                    <select
+                      value={guestPlayerType}
+                      onChange={(e) => setGuestPlayerType(e.target.value as "CASUAL" | "GOALKEEPER")}
+                      className="h-10 bg-black border border-zinc-800 rounded-md px-3 text-sm text-white"
+                    >
+                      <option value="CASUAL">Avulso</option>
+                      <option value="GOALKEEPER">Goleiro</option>
+                    </select>
+                    <Button
+                      onClick={handleAdminAddGuest}
+                      disabled={!guestName.trim() || adminSaving}
+                      variant="outline"
+                      className="h-10 border-zinc-700 text-zinc-300 uppercase tracking-wider"
+                    >
+                      Adicionar avulso
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2">
+                    O avulso será criado no banco e poderá ser vinculado na aba Jogadores.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-[#080808] border border-white/5 rounded-2xl overflow-hidden">
                 {confirmedPlayers.length > 0 ? (
@@ -373,17 +787,134 @@ export default function GameDetailPage() {
                           <span className="text-zinc-600 font-display font-bold text-lg w-6">{String(i + 1).padStart(2, '0')}</span>
                           <Avatar className="h-10 w-10 border border-zinc-800">
                             <AvatarImage src={c.user?.image} />
-                            <AvatarFallback className="bg-zinc-900 text-zinc-500 font-bold">{c.user?.name?.[0]}</AvatarFallback>
+                            <AvatarFallback className="bg-zinc-900 text-zinc-500 font-bold">
+                              {(c.user?.name || c.guestName || "?")[0]}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-bold text-white text-sm">{c.user?.name}</p>
-                            <p className="text-xs text-zinc-500 uppercase tracking-wider">{getPlayerTypeLabel(c.user?.playerType)}</p>
+                            <p className="font-bold text-white text-sm">{c.user?.name || c.guestName}</p>
+                            <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                              {c.user?.playerType ? getPlayerTypeLabel(c.user.playerType) : "Convidado"}
+                            </p>
                           </div>
                         </div>
 
-                        {c.status === "CONFIRMED" && (
-                          <div className="h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_rgba(197,160,89,0.5)]" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {isAdmin && c.user?.id && (
+                            <>
+                              {c.user?.playerType === "GOALKEEPER" && (game.priceGoalkeeper || 0) <= 0 ? (
+                                <Badge className="bg-indigo-500/15 text-indigo-400 border border-indigo-500/40 uppercase text-[10px]">
+                                  Isento
+                                </Badge>
+                              ) : c.user?.playerType === "MONTHLY" ? (
+                                <>
+                                  {isMonthlyPaidForGame(c.user.id, c.user?.playerType) ? (
+                                    <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 uppercase text-[10px]">
+                                      Mensalidade Paga
+                                    </Badge>
+                                  ) : (
+                                    <>
+                                      <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/40 uppercase text-[10px]">
+                                        Mensalidade Pendente
+                                      </Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-zinc-700 text-zinc-300 text-xs uppercase tracking-wider"
+                                        disabled={adminSaving}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAdminMarkPaid(c.user.id, c.user?.playerType || "MONTHLY", "CASH");
+                                        }}
+                                      >
+                                        Registrar Mensalidade
+                                      </Button>
+                                    </>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {(() => {
+                                    const payment = getPaymentForUser(c.user.id);
+                                    const isManualConfirmed = payment?.status === "CONFIRMED" && payment?.method === "CASH";
+                                    const isConfirmed = payment?.status === "CONFIRMED";
+                                    if (isConfirmed) {
+                                      return (
+                                        <>
+                                          <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 uppercase text-[10px]">
+                                            Pago
+                                          </Badge>
+                                          {isManualConfirmed && payment?.id && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-8 border-amber-900 text-amber-400 text-xs uppercase tracking-wider"
+                                              disabled={adminSaving}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAdminUndoManualPayment(payment.id);
+                                              }}
+                                            >
+                                              Desfazer Pago
+                                            </Button>
+                                          )}
+                                        </>
+                                      );
+                                    }
+
+                                    return (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-zinc-700 text-zinc-300 text-xs uppercase tracking-wider"
+                                        disabled={adminSaving}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAdminMarkPaid(c.user.id, c.user?.playerType || "CASUAL");
+                                        }}
+                                      >
+                                        Marcar Pago
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-blue-900 text-blue-400 text-xs uppercase tracking-wider"
+                                        disabled={adminSaving}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openChargeDialog(
+                                            c.user!.id,
+                                            c.user!.name || "Jogador",
+                                            c.user!.playerType || "CASUAL"
+                                          );
+                                        }}
+                                      >
+                                        Gerar Cobrança
+                                      </Button>
+                                    </>
+                                    );
+                                  })()}
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-red-900 text-red-400 text-xs uppercase tracking-wider"
+                                disabled={adminSaving}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAdminRemoveParticipant(c.user.id);
+                                }}
+                              >
+                                Remover
+                              </Button>
+                            </>
+                          )}
+                          {c.status === "CONFIRMED" && (
+                            <div className="h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_rgba(197,160,89,0.5)]" />
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -480,15 +1011,21 @@ export default function GameDetailPage() {
                     <span className="text-white">{confirmedPlayers.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Arrecadação Prevista</span>
+                    <span>Arrecadação Avulsa Prevista</span>
                     <span className="text-accent font-bold">
                       {formatCurrency(confirmedPlayers.reduce((acc, c) => {
-                        const price = c.user?.playerType === "GOALKEEPER"
-                          ? (game.priceGoalkeeper || 0)
-                          : game.pricePerPlayer;
-                        return acc + price;
+                        if (!c.user?.id) return acc;
+                        if (c.user.playerType === "GOALKEEPER") {
+                          return acc + ((game.priceGoalkeeper || 0) > 0 ? (game.priceGoalkeeper || 0) : 0);
+                        }
+                        if (c.user.playerType === "MONTHLY") return acc;
+                        return acc + game.pricePerPlayer;
                       }, 0))}
                     </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Arrecadação Avulsa Confirmada</span>
+                    <span className="text-emerald-400 font-bold">{formatCurrency(paidTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -503,6 +1040,51 @@ export default function GameDetailPage() {
         onOpenChange={setShowCpfDialog}
         onSave={handleSaveCpf}
       />
+
+      <Dialog open={chargeDialogOpen} onOpenChange={setChargeDialogOpen}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="font-display uppercase tracking-wide">Gerar Cobrança</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Escolha como deseja cobrar {selectedChargeParticipant?.userName || "o jogador"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="text-xs uppercase tracking-widest text-zinc-500">
+              Valor: <span className="text-white font-bold">{formatCurrency(selectedChargeParticipant?.amount || 0)}</span>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-widest text-zinc-500">WhatsApp (com DDD)</label>
+              <input
+                value={chargePhone}
+                onChange={(e) => setChargePhone(e.target.value)}
+                placeholder="11999999999"
+                className="h-10 w-full bg-black border border-zinc-800 rounded-md px-3 text-sm text-white"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              className="border-zinc-700 text-zinc-300"
+              onClick={handleOpenWhatsAppCharge}
+              disabled={chargeLoading}
+            >
+              Mensagem WhatsApp PIX
+            </Button>
+            <Button
+              className="bg-accent text-black hover:bg-accent/90"
+              onClick={handleGenerateInvoice}
+              disabled={chargeLoading}
+            >
+              {chargeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Invoice PagSeguro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

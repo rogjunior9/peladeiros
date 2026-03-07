@@ -93,7 +93,11 @@ export default function NewGamePage() {
         router.push("/games");
       } else {
         const error = await response.json();
-        throw new Error(error.error);
+        const firstDetail = error?.details?.[0];
+        const detailMessage = firstDetail?.message
+          ? `${firstDetail.path?.join(".") || "campo"}: ${firstDetail.message}`
+          : null;
+        throw new Error(detailMessage || error.error || "Erro ao criar pelada");
       }
     } catch (error: any) {
       toast({

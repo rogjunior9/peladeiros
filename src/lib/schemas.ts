@@ -7,8 +7,11 @@ const cpfSchema = z.string().regex(/^\d{11}$/, "CPF deve conter 11 dígitos num�
 // Helper para validar email
 const emailSchema = z.string().email("Email inválido").max(255);
 
-// Helper para validar UUID
-const uuidSchema = z.string().uuid("ID inválido");
+// Helper para validar IDs (Prisma usa cuid; manter compatibilidade com UUID)
+const uuidSchema = z.union([
+  z.string().cuid("ID inválido"),
+  z.string().uuid("ID inválido"),
+]);
 
 // Helper para validar mês de referência (YYYY-MM)
 const monthSchema = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/, "Mês deve estar no formato YYYY-MM");

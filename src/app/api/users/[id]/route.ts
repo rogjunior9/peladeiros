@@ -5,6 +5,25 @@ import { prisma } from "@/lib/prisma";
 import { rateLimiters, withRateLimit } from "@/lib/rate-limit";
 import { updateUserSchema } from "@/lib/schemas";
 
+async function hasAdminAccess(user: { id?: string | null; role?: string | null; email?: string | null }) {
+  if (user?.role === "ADMIN") return true;
+  const adminEmails = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (user?.email && adminEmails.includes(user.email.toLowerCase())) return true;
+
+  if (user?.id) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+    return dbUser?.role === "ADMIN";
+  }
+
+  return false;
+}
+
 async function handleGet(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -53,7 +72,7 @@ async function handleGet(
     }
 
     // Se não for admin, só pode ver próprio perfil
-    if (session.user.role !== "ADMIN" && session.user.id !== params.id) {
+    if (!(await hasAdminAccess(session.user)) && session.user.id !== params.id) {
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
 
@@ -94,7 +113,7 @@ async function handlePut(
 
     // Verificar permissões
     const isSelf = params.id === session.user.id;
-    const isAdmin = session.user.role === "ADMIN";
+    const isAdmin = await hasAdminAccess(session.user);
 
     // Only admin can change role and playerType
     if ((role || playerType !== undefined) && !isAdmin && !isSelf) {
@@ -159,9 +178,110 @@ async function handlePut(
   }
 }
 
+async function handleDelete(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
+    }
+
+    if (!(await hasAdminAccess(session.user))) {
+      return NextResponse.json(
+        { error: "Apenas administradores podem excluir jogadores" },
+        { status: 403 }
+      );
+    }
+
+    if (params.id === session.user.id) {
+      return NextResponse.json(
+        { error: "Nao e permitido excluir o proprio usuario logado" },
+        { status: 400 }
+      );
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+      },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: "Usuario nao encontrado" }, { status: 404 });
+    }
+
+    const ownership = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: {
+        _count: {
+          select: {
+            createdGames: true,
+            createdVenues: true,
+            transactions: true,
+          },
+        },
+      },
+    });
+
+    if (
+      (ownership?._count.createdGames || 0) > 0 ||
+      (ownership?._count.createdVenues || 0) > 0 ||
+      (ownership?._count.transactions || 0) > 0
+    ) {
+      return NextResponse.json(
+        { error: "Usuario possui registros administrativos criados. Reatribua antes de excluir." },
+        { status: 409 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const [confirmations, payments, sessions, accounts, notifications, auditLogs] = await Promise.all([
+        tx.gameConfirmation.deleteMany({ where: { userId: params.id } }),
+        tx.payment.deleteMany({ where: { userId: params.id } }),
+        tx.session.deleteMany({ where: { userId: params.id } }),
+        tx.account.deleteMany({ where: { userId: params.id } }),
+        tx.notification.deleteMany({ where: { userId: params.id } }),
+        tx.auditLog.deleteMany({ where: { userId: params.id } }),
+      ]);
+
+      await tx.user.delete({
+        where: { id: params.id },
+      });
+
+      return {
+        deletedUserId: params.id,
+        deletedUserName: targetUser.name || "Sem nome",
+        removed: {
+          confirmations: confirmations.count,
+          payments: payments.count,
+          sessions: sessions.count,
+          accounts: accounts.count,
+          notifications: notifications.count,
+          auditLogs: auditLogs.count,
+        },
+      };
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Erro ao excluir usuario:", error);
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
+  }
+}
+
 // Exportar com rate limiting
 const getHandler = (req: NextRequest, ctx: { params: { id: string } }) => handleGet(req, ctx);
 const putHandler = (req: NextRequest, ctx: { params: { id: string } }) => handlePut(req, ctx);
+const deleteHandler = (req: NextRequest, ctx: { params: { id: string } }) => handleDelete(req, ctx);
 
 export const GET = withRateLimit(getHandler, {
   limiter: rateLimiters.api,
@@ -172,4 +292,10 @@ export const PUT = withRateLimit(putHandler, {
   limiter: rateLimiters.api,
   keyPrefix: "users:update",
   getKey: (req) => `users:update:${req.ip || "anonymous"}`,
+});
+
+export const DELETE = withRateLimit(deleteHandler, {
+  limiter: rateLimiters.api,
+  keyPrefix: "users:delete",
+  getKey: (req) => `users:delete:${req.ip || "anonymous"}`,
 });

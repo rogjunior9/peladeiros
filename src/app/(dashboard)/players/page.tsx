@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +37,8 @@ import {
   CalendarDays,
   Check,
   X,
-  DollarSign
+  DollarSign,
+  Trash2
 } from "lucide-react";
 
 interface Player {
@@ -79,7 +80,7 @@ interface UserDetail extends Player {
 }
 
 export default function PlayersPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { toast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,15 +91,13 @@ export default function PlayersPage() {
   const [playerDetails, setPlayerDetails] = useState<UserDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergeTargetUserId, setMergeTargetUserId] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
 
   const isAdmin = session?.user?.role === "ADMIN";
 
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     try {
       const response = await fetch("/api/users");
       if (response.ok) {
@@ -110,7 +109,18 @@ export default function PlayersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchPlayers();
+      return;
+    }
+
+    if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [status, fetchPlayers]);
 
   const fetchPlayerDetails = async (id: string) => {
     setLoadingDetails(true);
@@ -211,6 +221,86 @@ export default function PlayersPage() {
       toast({
         title: "Erro",
         description: "Erro ao atualizar jogador",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMergePlayerHistory = async () => {
+    if (!editingPlayer || !mergeTargetUserId) return;
+    setMerging(true);
+    try {
+      const response = await fetch(`/api/users/${editingPlayer.id}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: mergeTargetUserId }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Falha ao vincular histórico");
+      }
+
+      toast({
+        title: "Histórico vinculado",
+        description: `Peladas: ${data.movedConfirmations + data.mergedConfirmations} • Pagamentos: ${data.movedPayments + data.mergedPayments}`,
+        variant: "success",
+      });
+
+      setEditingPlayer(null);
+      setMergeTargetUserId("");
+      await fetchPlayers();
+      if (viewingPlayerId === editingPlayer.id) {
+        setViewingPlayerId(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao vincular histórico",
+        variant: "destructive",
+      });
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const handleDeletePlayer = async () => {
+    if (!editingPlayer) return;
+    const confirmDelete = window.confirm(
+      `Excluir ${editingPlayer.name || "este jogador"} e todo o histórico (presenças, pagamentos, sessão e notificações)?`
+    );
+    if (!confirmDelete) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/users/${editingPlayer.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Erro ao excluir jogador");
+      }
+
+      toast({
+        title: "Jogador excluído",
+        description: "Histórico removido com sucesso.",
+        variant: "success",
+      });
+
+      if (viewingPlayerId === editingPlayer.id) {
+        setViewingPlayerId(null);
+      }
+      setEditingPlayer(null);
+      setMergeTargetUserId("");
+      await fetchPlayers();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao excluir jogador",
         variant: "destructive",
       });
     } finally {
@@ -719,9 +809,52 @@ export default function PlayersPage() {
                   <p className="text-[10px] text-zinc-500 uppercase tracking-tighter">Define se o jogador pode realizar login e confirmar presença.</p>
                 </div>
               </div>
+
+              {isAdmin && (
+                <div className="space-y-3 bg-zinc-900/40 p-4 rounded-xl border border-zinc-800">
+                  <Label className="text-zinc-400 uppercase text-[10px] font-bold tracking-widest">
+                    Vincular Histórico a Outro Cadastro
+                  </Label>
+                  <Select value={mergeTargetUserId} onValueChange={setMergeTargetUserId}>
+                    <SelectTrigger className="bg-zinc-900 border-white/10 text-white h-12">
+                      <SelectValue placeholder="Selecione o cadastro de destino" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
+                      {players
+                        .filter((player) => player.id !== editingPlayer.id && player.isActive)
+                        .map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.name || "Sem nome"} {player.email ? `(${player.email})` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest">
+                    Somente admin. Move peladas/pagamentos e evita duplicação.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={handleMergePlayerHistory}
+                    disabled={!mergeTargetUserId || merging || saving}
+                    className="w-full border-zinc-700 text-zinc-300 hover:text-white"
+                  >
+                    {merging ? <Loader2 className="animate-spin h-4 w-4" /> : "Vincular Histórico"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="pt-6 border-t border-white/5">
+            <Button
+              variant="outline"
+              onClick={handleDeletePlayer}
+              disabled={saving || merging || (editingPlayer?.id === session?.user?.id)}
+              className="mr-auto border-red-900/50 text-red-400 hover:text-red-300 hover:bg-red-950/20 uppercase tracking-widest text-[10px] font-bold"
+              title={editingPlayer?.id === session?.user?.id ? "Não é permitido excluir o próprio usuário logado" : ""}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              Excluir Jogador
+            </Button>
             <Button variant="ghost" onClick={() => setEditingPlayer(null)} className="text-zinc-500 hover:text-white uppercase tracking-widest text-[10px] font-bold">
               Abortar
             </Button>

@@ -134,12 +134,13 @@ export default function VenuesPage() {
         fetchVenues();
         setDialogOpen(false);
       } else {
-        throw new Error("Erro ao salvar");
+        const err = await response.json().catch(() => null);
+        throw new Error(err?.error || "Erro ao salvar");
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao salvar local",
+        description: error instanceof Error ? error.message : "Erro ao salvar local",
         variant: "destructive",
       });
     } finally {
@@ -401,7 +402,7 @@ export default function VenuesPage() {
                   </span>
                   <span className="flex items-center" title="Jogos realizados">
                     <Calendar className="h-3.5 w-3.5 mr-1" />
-                    {venue._count.games}
+                    {venue._count?.games ?? 0}
                   </span>
                 </div>
                 {venue.pricePerHour && (

@@ -34,21 +34,38 @@ export const authOptions: NextAuthOptions = {
           return false;
         }
       }
+
+      // Sincroniza avatar do Google no banco de usuários
+      if (account?.provider === "google" && user.email) {
+        const googlePicture = (profile as { picture?: string } | null)?.picture;
+        if (googlePicture) {
+          try {
+            await prisma.user.updateMany({
+              where: { email: user.email },
+              data: { image: googlePicture },
+            });
+          } catch (error) {
+            console.error("[Auth] Falha ao sincronizar avatar do Google:", error);
+          }
+        }
+      }
       
       return true;
     },
     async session({ session, user }) {
-      if (session.user) {
+      if (!session.user) return session;
+
+      try {
         const adminEmails = getAdminEmails();
-        
+
         // Auto-promote admin se email estiver na lista
         if (session.user.email && adminEmails.includes(session.user.email)) {
-          const dbUser = await prisma.user.findUnique({ 
+          const dbUserForRole = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { role: true }
+            select: { role: true },
           });
-          
-          if (dbUser?.role !== "ADMIN") {
+
+          if (dbUserForRole?.role !== "ADMIN") {
             await prisma.user.update({
               where: { id: user.id },
               data: { role: "ADMIN" },
@@ -56,7 +73,7 @@ export const authOptions: NextAuthOptions = {
             session.user.role = "ADMIN";
           }
         }
-        
+
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: {
@@ -68,17 +85,25 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        // Se usuário está inativo, invalidar sessão
-        if (dbUser?.isActive === false) {
-          throw new Error("Usuário inativo");
-        }
-
         session.user.id = user.id;
         session.user.role = dbUser?.role || "PLAYER";
         session.user.playerType = dbUser?.playerType || "CASUAL";
         session.user.phone = dbUser?.phone || null;
+        (session.user as any).isActive = dbUser?.isActive !== false;
+
+        return session;
+      } catch (error) {
+        console.error("[Auth] Erro no callback de sessão:", error);
+
+        // Nunca quebrar o useSession() no cliente por erro de banco.
+        session.user.id = user.id;
+        session.user.role = (session.user as any).role || "PLAYER";
+        session.user.playerType = (session.user as any).playerType || "CASUAL";
+        session.user.phone = (session.user as any).phone || null;
+        (session.user as any).isActive = true;
+
+        return session;
       }
-      return session;
     },
   },
   pages: {

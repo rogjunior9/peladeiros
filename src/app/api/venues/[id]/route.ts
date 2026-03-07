@@ -3,6 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function hasAdminAccess(user: { role?: string | null; email?: string | null }) {
+  if (user?.role === "ADMIN") return true;
+  const adminEmails = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return !!user?.email && adminEmails.includes(user.email.toLowerCase());
+}
+
+function normalizeOptionalString(value: unknown) {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -53,7 +68,7 @@ export async function PUT(
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
     }
 
-    if (session.user.role !== "ADMIN") {
+    if (!hasAdminAccess(session.user)) {
       return NextResponse.json(
         { error: "Apenas administradores podem editar locais" },
         { status: 403 }
@@ -75,20 +90,23 @@ export async function PUT(
       googleMapsLink,
     } = body;
 
+    const zipCodeDigits = zipCode ? String(zipCode).replace(/\D/g, "") : "";
+    const phoneDigits = phone ? String(phone).replace(/\D/g, "") : "";
+
     const venue = await prisma.venue.update({
       where: { id: params.id },
       data: {
-        name,
-        address,
-        city,
-        state,
-        zipCode,
-        phone,
+        name: normalizeOptionalString(name) ?? undefined,
+        address: normalizeOptionalString(address) ?? undefined,
+        city: normalizeOptionalString(city) ?? undefined,
+        state: normalizeOptionalString(state) ?? undefined,
+        zipCode: zipCodeDigits || null,
+        phone: phoneDigits || null,
         pricePerHour: (pricePerHour === "" || pricePerHour === null || pricePerHour === undefined) ? null : parseFloat(String(pricePerHour)),
         gameType,
         capacity: (capacity && String(capacity).length > 0) ? parseInt(String(capacity)) : undefined,
         isActive,
-        googleMapsLink,
+        googleMapsLink: normalizeOptionalString(googleMapsLink),
       },
     });
 
@@ -113,7 +131,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
     }
 
-    if (session.user.role !== "ADMIN") {
+    if (!hasAdminAccess(session.user)) {
       return NextResponse.json(
         { error: "Apenas administradores podem excluir locais" },
         { status: 403 }
