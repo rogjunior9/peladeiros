@@ -23,7 +23,6 @@ interface UserStatus {
     name: string;
     email: string;
     playerType: string;
-    document: string | null;
     image: string | null;
     payments: Array<{
         id: string;
@@ -208,7 +207,7 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
             const message = error.message || "Falha ao gerar cobrança";
             if (canPromptCpf && /cpf/i.test(message)) {
                 setPendingChargeUser(user);
-                setCpfValue((user.document || "").replace(/\D/g, ""));
+                setCpfValue("");
                 setCpfDialogOpen(true);
                 return;
             }
@@ -252,7 +251,7 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
 
             setCpfDialogOpen(false);
             await loadData();
-            await generateUserCharge({ ...pendingChargeUser, document: digits }, false);
+            await generateUserCharge(pendingChargeUser, false);
         } catch (error: any) {
             toast({
                 title: "Erro",
@@ -262,11 +261,6 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
         } finally {
             setCpfSaving(false);
         }
-    };
-
-    const formatCPF = (cpf: string | null) => {
-        if (!cpf) return "-";
-        return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
     };
 
     const getStatusBadge = (user: UserStatus) => {
@@ -293,7 +287,6 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
             <TableHeader className="bg-slate-900/50 sticky top-0 z-10 backdrop-blur-sm">
                 <TableRow className="border-slate-800/50 hover:bg-transparent">
                     <TableHead className="text-slate-400 pl-6">Jogador</TableHead>
-                    <TableHead className="text-slate-400">CPF</TableHead>
                     <TableHead className="text-slate-400">Tipo</TableHead>
                     <TableHead className="text-slate-400">Status Mês</TableHead>
                     <TableHead className="text-slate-400 text-right pr-6">Ações</TableHead>
@@ -312,9 +305,6 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
                                     <AvatarFallback className="bg-slate-900 text-amber-500">{user.name?.[0]}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-slate-200">{user.name}</span>
-                            </TableCell>
-                            <TableCell className="text-slate-500 font-mono text-xs">
-                                {formatCPF(user.document)}
                             </TableCell>
                             <TableCell>
                                 <Select
@@ -371,7 +361,7 @@ export function MonthlyChargeDialog({ open, onOpenChange }: Props) {
                 })}
                 {list.length === 0 && (
                     <TableRow className="border-slate-800/30">
-                        <TableCell colSpan={5} className="text-center py-10 text-slate-500 text-sm">
+                        <TableCell colSpan={4} className="text-center py-10 text-slate-500 text-sm">
                             Nenhum jogador encontrado nesta aba.
                         </TableCell>
                     </TableRow>

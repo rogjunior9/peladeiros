@@ -35,7 +35,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/5">
-      <div className="flex items-center justify-between h-20 px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between h-16 md:h-20 px-3 sm:px-6 lg:px-8">
         <button
           onClick={onMenuClick}
           className="text-zinc-400 hover:text-white lg:hidden transition-colors"
@@ -45,7 +45,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <div className="flex-1 lg:flex-none" />
 
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-3 md:space-x-6">
 
           <NotificationsPopover />
 

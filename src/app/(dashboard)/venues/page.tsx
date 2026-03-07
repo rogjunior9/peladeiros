@@ -191,17 +191,17 @@ export default function VenuesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 md:space-y-6 pb-8 md:pb-10">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-white/5 pb-4 md:pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Locais</h1>
-          <p className="text-zinc-500 mt-1">Gerencie os locais das peladas</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-tight">Locais</h1>
+          <p className="text-zinc-500 mt-1 text-sm md:text-base">Gerencie os locais das peladas</p>
         </div>
         {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button
-                className="bg-accent text-black hover:bg-white font-bold uppercase tracking-wider"
+                className="w-full md:w-auto bg-accent text-black hover:bg-white font-bold uppercase tracking-wider"
                 onClick={() => handleOpenDialog()}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -334,14 +334,14 @@ export default function VenuesPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={saving}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="w-full sm:w-auto bg-accent text-black hover:bg-accent/90"
                 >
                   {saving ? "Salvando..." : "Salvar"}
                 </Button>
@@ -352,7 +352,7 @@ export default function VenuesPage() {
       </div>
 
       {/* Venues List */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
         {venues.map((venue) => (
           <Card key={venue.id}>
             <CardHeader className="pb-2">

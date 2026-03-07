@@ -119,6 +119,7 @@ async function handlePost(request: NextRequest) {
           amount,
           description,
           category,
+          status: "APPROVED",
           date: date ? new Date(date) : new Date(),
           createdById: session.user.id,
           gameId,

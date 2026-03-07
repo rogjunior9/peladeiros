@@ -6,13 +6,13 @@ import { Trophy, Sparkles, Target } from "lucide-react";
 
 export default function AwardsPage() {
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-end justify-between border-b border-white/5 pb-6">
+    <div className="space-y-5 md:space-y-8 pb-8 md:pb-10">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-white/5 pb-4 md:pb-6">
         <div>
-          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Premiações</h1>
-          <p className="text-zinc-500 mt-1">Área dedicada a metas, rankings e premiações da pelada</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-tight">Premiações</h1>
+          <p className="text-zinc-500 mt-1 text-sm md:text-base">Área dedicada a metas, rankings e premiações da pelada</p>
         </div>
-        <Badge className="bg-accent/10 text-accent border-accent/20 uppercase tracking-widest text-[10px]">
+        <Badge className="w-fit bg-accent/10 text-accent border-accent/20 uppercase tracking-widest text-[10px]">
           Em Planejamento
         </Badge>
       </div>

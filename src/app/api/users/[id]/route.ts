@@ -76,7 +76,11 @@ async function handleGet(
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
 
-    return NextResponse.json(user);
+    const canViewDocument = session.user.id === params.id;
+    return NextResponse.json({
+      ...user,
+      document: canViewDocument ? user.document : null,
+    });
   } catch (error) {
     console.error("Erro ao buscar usuario:", error);
     return NextResponse.json(

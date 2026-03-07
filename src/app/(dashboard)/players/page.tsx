@@ -57,7 +57,7 @@ interface Player {
 }
 
 interface UserDetail extends Player {
-  document: string;
+  document: string | null;
   createdAt: string;
   confirmations: {
     id: string;
@@ -359,64 +359,64 @@ export default function PlayersPage() {
   }
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-end justify-between border-b border-white/5 pb-6">
+    <div className="space-y-5 md:space-y-8 pb-8 md:pb-10">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-white/5 pb-4 md:pb-6">
         <div>
-          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Jogadores</h1>
-          <p className="text-zinc-500 mt-1">Gerencie o elenco da pelada</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-tight">Jogadores</h1>
+          <p className="text-zinc-500 mt-1 text-sm md:text-base">Gerencie o elenco da pelada</p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4 md:pt-6 md:pb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Total</p>
-                <p className="text-3xl font-display font-bold text-white">{stats.total}</p>
+                <p className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">Total</p>
+                <p className="text-2xl md:text-3xl font-display font-bold text-white">{stats.total}</p>
               </div>
-              <Users className="h-8 w-8 text-zinc-800" />
+              <Users className="h-5 w-5 md:h-8 md:w-8 text-zinc-800" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4 md:pt-6 md:pb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Mensalistas</p>
-                <p className="text-3xl font-display font-bold text-accent">{stats.monthly}</p>
+                <p className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">Mensalistas</p>
+                <p className="text-2xl md:text-3xl font-display font-bold text-accent">{stats.monthly}</p>
               </div>
-              <Badge className="bg-accent/10 text-accent border-accent/20 uppercase tracking-wider text-[10px]">Mensal</Badge>
+              <Badge className="bg-accent/10 text-accent border-accent/20 uppercase tracking-wider text-[9px] md:text-[10px] px-2">Mensal</Badge>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4 md:pt-6 md:pb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Avulsos</p>
-                <p className="text-3xl font-display font-bold text-blue-400">{stats.casual}</p>
+                <p className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">Avulsos</p>
+                <p className="text-2xl md:text-3xl font-display font-bold text-blue-400">{stats.casual}</p>
               </div>
-              <Badge className="bg-blue-900/20 text-blue-400 border-blue-900/30 uppercase tracking-wider text-[10px]">Avulso</Badge>
+              <Badge className="bg-blue-900/20 text-blue-400 border-blue-900/30 uppercase tracking-wider text-[9px] md:text-[10px] px-2">Avulso</Badge>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-colors">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4 md:pt-6 md:pb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Goleiros</p>
-                <p className="text-3xl font-display font-bold text-yellow-500">{stats.goalkeeper}</p>
+                <p className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">Goleiros</p>
+                <p className="text-2xl md:text-3xl font-display font-bold text-yellow-500">{stats.goalkeeper}</p>
               </div>
-              <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-900/30 uppercase tracking-wider text-[10px]">Goleiro</Badge>
+              <Badge className="bg-yellow-900/20 text-yellow-500 border-yellow-900/30 uppercase tracking-wider text-[9px] md:text-[10px] px-2">Goleiro</Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
@@ -441,7 +441,7 @@ export default function PlayersPage() {
 
       {/* Players List */}
       <Card className="bg-zinc-950 border border-white/5">
-        <CardHeader className="border-b border-white/5 pb-4">
+        <CardHeader className="border-b border-white/5 pb-3 md:pb-4">
           <CardTitle className="text-lg font-display font-bold text-white uppercase tracking-wide">
             Lista de Jogadores <span className="text-zinc-500 ml-2">({filteredPlayers.length})</span>
           </CardTitle>

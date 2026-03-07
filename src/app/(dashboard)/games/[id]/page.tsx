@@ -29,6 +29,9 @@ import {
   Loader2,
   Trophy, // Icone mais "esporte/premio"
   Zap,
+  Copy,
+  ExternalLink,
+  MessageCircle,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -125,6 +128,14 @@ export default function GameDetailPage() {
   const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
   const [chargePhone, setChargePhone] = useState("");
   const [chargeLoading, setChargeLoading] = useState(false);
+  const [pixDialogOpen, setPixDialogOpen] = useState(false);
+  const [generatedPix, setGeneratedPix] = useState<{
+    userName: string;
+    amount: number;
+    pixCode: string;
+    pixQrCode?: string | null;
+    phone?: string | null;
+  } | null>(null);
   const [selectedChargeParticipant, setSelectedChargeParticipant] = useState<{
     userId: string;
     userName: string;
@@ -527,6 +538,88 @@ export default function GameDetailPage() {
     }
   };
 
+  const handleGeneratePixCharge = async () => {
+    if (!selectedChargeParticipant || !game) return;
+    setChargeLoading(true);
+    try {
+      const response = await fetch("/api/payments/pix-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedChargeParticipant.userId,
+          gameId: game.id,
+          amount: selectedChargeParticipant.amount,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Falha ao gerar PIX");
+      }
+
+      const pixCode = typeof data?.payment?.pixCode === "string" ? data.payment.pixCode : "";
+      if (!pixCode) {
+        throw new Error("PIX gerado sem codigo de copia e cola");
+      }
+
+      const pixQrCode = typeof data?.payment?.pixQrCode === "string" ? data.payment.pixQrCode : "";
+      const phone = typeof data?.user?.phone === "string" ? data.user.phone : chargePhone;
+      const amount = typeof data?.payment?.amount === "number" ? data.payment.amount : selectedChargeParticipant.amount;
+
+      setGeneratedPix({
+        userName: selectedChargeParticipant.userName,
+        amount,
+        pixCode,
+        pixQrCode,
+        phone,
+      });
+      setPixDialogOpen(true);
+
+      toast({
+        title: data?.reused ? "PIX pendente reutilizado" : "PIX gerado",
+        description: `Cobrança pronta para ${selectedChargeParticipant.userName}.`,
+        variant: "success",
+      });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message || "Falha ao gerar PIX", variant: "destructive" });
+    } finally {
+      setChargeLoading(false);
+    }
+  };
+
+  const handleCopyGeneratedPix = async () => {
+    if (!generatedPix?.pixCode) return;
+    try {
+      await navigator.clipboard.writeText(generatedPix.pixCode);
+      toast({ title: "PIX copiado", variant: "success" });
+    } catch {
+      toast({ title: "Erro ao copiar PIX", variant: "destructive" });
+    }
+  };
+
+  const handleSendGeneratedPixWhatsApp = () => {
+    if (!generatedPix || !game) return;
+    const normalizedPhone = normalizePhoneForWhatsApp(generatedPix.phone || "");
+    if (!normalizedPhone) {
+      toast({ title: "Jogador sem telefone cadastrado", variant: "destructive" });
+      return;
+    }
+
+    const amount = generatedPix.amount.toFixed(2).replace(".", ",");
+    const date = formatDate(game.date);
+    const message = [
+      `Fala, ${generatedPix.userName}! Tudo bem?`,
+      `Sua cobrança da pelada ${game.title} (${date}) é de R$ ${amount}.`,
+      "",
+      "PIX copia e cola:",
+      generatedPix.pixCode,
+      "",
+      "Depois me envia o comprovante, por favor.",
+    ].join("\n");
+
+    window.open(`https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  };
+
   const handleOpenWhatsAppCharge = () => {
     if (!selectedChargeParticipant || !game) return;
 
@@ -800,15 +893,15 @@ export default function GameDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {isAdmin && c.user?.id && (
+                          {isAdmin && c.user && (
                             <>
-                              {c.user?.playerType === "GOALKEEPER" && (game.priceGoalkeeper || 0) <= 0 ? (
+                              {c.user.playerType === "GOALKEEPER" && (game.priceGoalkeeper || 0) <= 0 ? (
                                 <Badge className="bg-indigo-500/15 text-indigo-400 border border-indigo-500/40 uppercase text-[10px]">
                                   Isento
                                 </Badge>
-                              ) : c.user?.playerType === "MONTHLY" ? (
+                              ) : c.user.playerType === "MONTHLY" ? (
                                 <>
-                                  {isMonthlyPaidForGame(c.user.id, c.user?.playerType) ? (
+                                  {isMonthlyPaidForGame(c.user.id, c.user.playerType) ? (
                                     <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 uppercase text-[10px]">
                                       Mensalidade Paga
                                     </Badge>
@@ -824,7 +917,7 @@ export default function GameDetailPage() {
                                         disabled={adminSaving}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleAdminMarkPaid(c.user.id, c.user?.playerType || "MONTHLY", "CASH");
+                                          handleAdminMarkPaid(c.user!.id, c.user!.playerType);
                                         }}
                                       >
                                         Registrar Mensalidade
@@ -835,7 +928,7 @@ export default function GameDetailPage() {
                               ) : (
                                 <>
                                   {(() => {
-                                    const payment = getPaymentForUser(c.user.id);
+                                    const payment = getPaymentForUser(c.user!.id);
                                     const isManualConfirmed = payment?.status === "CONFIRMED" && payment?.method === "CASH";
                                     const isConfirmed = payment?.status === "CONFIRMED";
                                     if (isConfirmed) {
@@ -871,7 +964,7 @@ export default function GameDetailPage() {
                                         disabled={adminSaving}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleAdminMarkPaid(c.user.id, c.user?.playerType || "CASUAL");
+                                          handleAdminMarkPaid(c.user!.id, c.user!.playerType || "CASUAL");
                                         }}
                                       >
                                         Marcar Pago
@@ -904,7 +997,7 @@ export default function GameDetailPage() {
                                 disabled={adminSaving}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleAdminRemoveParticipant(c.user.id);
+                                  handleAdminRemoveParticipant(c.user!.id);
                                 }}
                               >
                                 Remover
@@ -1014,11 +1107,12 @@ export default function GameDetailPage() {
                     <span>Arrecadação Avulsa Prevista</span>
                     <span className="text-accent font-bold">
                       {formatCurrency(confirmedPlayers.reduce((acc, c) => {
-                        if (!c.user?.id) return acc;
-                        if (c.user.playerType === "GOALKEEPER") {
+                        const user = c.user;
+                        if (!user?.id) return acc;
+                        if (user.playerType === "GOALKEEPER") {
                           return acc + ((game.priceGoalkeeper || 0) > 0 ? (game.priceGoalkeeper || 0) : 0);
                         }
-                        if (c.user.playerType === "MONTHLY") return acc;
+                        if (user.playerType === "MONTHLY") return acc;
                         return acc + game.pricePerPlayer;
                       }, 0))}
                     </span>
@@ -1042,7 +1136,7 @@ export default function GameDetailPage() {
       />
 
       <Dialog open={chargeDialogOpen} onOpenChange={setChargeDialogOpen}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white">
+        <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800 text-white">
           <DialogHeader>
             <DialogTitle className="font-display uppercase tracking-wide">Gerar Cobrança</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -1065,22 +1159,77 @@ export default function GameDetailPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex-col sm:flex-row sm:justify-end gap-2">
             <Button
               variant="outline"
-              className="border-zinc-700 text-zinc-300"
+              className="w-full sm:w-auto border-emerald-900 text-emerald-400"
+              onClick={handleGeneratePixCharge}
+              disabled={chargeLoading}
+            >
+              {chargeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Gerar PIX
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto border-zinc-700 text-zinc-300"
               onClick={handleOpenWhatsAppCharge}
               disabled={chargeLoading}
             >
               Mensagem WhatsApp PIX
             </Button>
             <Button
-              className="bg-accent text-black hover:bg-accent/90"
+              className="w-full sm:w-auto bg-accent text-black hover:bg-accent/90"
               onClick={handleGenerateInvoice}
               disabled={chargeLoading}
             >
               {chargeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Invoice PagSeguro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pixDialogOpen} onOpenChange={setPixDialogOpen}>
+        <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="font-display uppercase tracking-wide">PIX da Cobrança</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Código pronto para {generatedPix?.userName || "jogador"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="text-xs uppercase tracking-widest text-zinc-500">
+              Valor: <span className="text-white font-bold">{formatCurrency(generatedPix?.amount || 0)}</span>
+            </div>
+            <div className="rounded-md border border-zinc-800 bg-black p-3 text-xs break-all text-zinc-300">
+              {generatedPix?.pixCode || "Código PIX não disponível"}
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row sm:justify-end gap-2">
+            {generatedPix?.pixQrCode ? (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto border-zinc-700 text-zinc-300"
+                onClick={() => window.open(generatedPix.pixQrCode || "", "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir QR
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto border-emerald-900 text-emerald-400"
+              onClick={handleSendGeneratedPixWhatsApp}
+              disabled={!generatedPix?.phone}
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Enviar WhatsApp
+            </Button>
+            <Button className="w-full sm:w-auto bg-accent text-black hover:bg-accent/90" onClick={handleCopyGeneratedPix}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar PIX
             </Button>
           </DialogFooter>
         </DialogContent>

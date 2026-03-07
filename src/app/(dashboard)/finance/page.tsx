@@ -197,7 +197,7 @@ export default function FinancePage() {
       id: `transaction-${transaction.id}`,
       kind: "TRANSACTION",
       flow: transaction.type,
-      status: transaction.status,
+      status: "APPROVED",
       amount: transaction.amount,
       date: transaction.date,
       title: transaction.description,
@@ -209,6 +209,15 @@ export default function FinancePage() {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   }, [payments, transactions]);
+
+  const visibleLaunches = useMemo(
+    () => (isAdmin ? launches : launches.filter((item) => !(item.kind === "PAYMENT" && item.status === "PENDING"))),
+    [isAdmin, launches]
+  );
+
+  const launchTabs = isAdmin
+    ? (["all", "income", "expense", "pending"] as const)
+    : (["all", "income", "expense"] as const);
 
   const handleCreateTransaction = async () => {
     setSaving(true);
@@ -265,17 +274,17 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-end justify-between border-b border-white/5 pb-6">
+    <div className="space-y-5 md:space-y-8 pb-8 md:pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between border-b border-white/5 pb-4 md:pb-6">
         <div>
-          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Financeiro</h1>
-          <p className="text-zinc-500 mt-1">Dashboard financeiro consolidado de pagamentos e caixa</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-tight">Financeiro</h1>
+          <p className="text-sm md:text-base text-zinc-500 mt-1">Dashboard financeiro consolidado de pagamentos e caixa</p>
         </div>
 
         {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-accent hover:bg-accent/90 text-black font-bold uppercase tracking-widest">
+              <Button className="w-full md:w-auto bg-accent hover:bg-accent/90 text-black font-bold uppercase tracking-widest">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Lançamento
               </Button>
@@ -390,14 +399,14 @@ export default function FinancePage() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-3">
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
             <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Entradas Totais</CardTitle>
             <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-display font-bold text-emerald-400">
+          <CardContent className="pt-1">
+            <div className="text-2xl md:text-3xl font-display font-bold text-emerald-400">
               {formatCurrency(summary.totalIncome)}
             </div>
             <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Pagamentos confirmados + entradas</p>
@@ -405,12 +414,12 @@ export default function FinancePage() {
         </Card>
 
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
             <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Saídas Totais</CardTitle>
             <TrendingDown className="h-4 w-4 text-rose-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-display font-bold text-rose-400">
+          <CardContent className="pt-1">
+            <div className="text-2xl md:text-3xl font-display font-bold text-rose-400">
               {formatCurrency(summary.totalExpenses)}
             </div>
             <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Custos operacionais</p>
@@ -418,12 +427,12 @@ export default function FinancePage() {
         </Card>
 
         <Card className="bg-zinc-950 border-white/5 hover:border-white/10 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
             <CardTitle className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Saldo em Caixa</CardTitle>
             <DollarSign className="h-4 w-4 text-accent" />
           </CardHeader>
-          <CardContent>
-            <div className={cn("text-3xl font-display font-bold", summary.balance >= 0 ? "text-white" : "text-rose-500")}>
+          <CardContent className="pt-1">
+            <div className={cn("text-2xl md:text-3xl font-display font-bold", summary.balance >= 0 ? "text-white" : "text-rose-500")}>
               {formatCurrency(summary.balance)}
             </div>
             <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Patrimônio líquido disponível</p>
@@ -439,65 +448,64 @@ export default function FinancePage() {
 
         <CardContent className="p-0">
           <Tabs defaultValue="all" className="w-full">
-            <div className="px-6 py-4 bg-zinc-950/30 border-b border-white/5">
-              <TabsList className="bg-black border border-white/5">
+            <div className="px-3 md:px-6 py-3 md:py-4 bg-zinc-950/30 border-b border-white/5 overflow-x-auto">
+              <TabsList className="bg-black border border-white/5 min-w-max">
                 <TabsTrigger value="all" className="uppercase text-[10px] tracking-widest font-bold">Todos</TabsTrigger>
                 <TabsTrigger value="income" className="uppercase text-[10px] tracking-widest font-bold">Entradas</TabsTrigger>
                 <TabsTrigger value="expense" className="uppercase text-[10px] tracking-widest font-bold">Saídas</TabsTrigger>
-                <TabsTrigger value="pending" className="uppercase text-[10px] tracking-widest font-bold">Pendentes</TabsTrigger>
+                {isAdmin && (
+                  <TabsTrigger value="pending" className="uppercase text-[10px] tracking-widest font-bold">Pendentes</TabsTrigger>
+                )}
               </TabsList>
             </div>
 
-            {["all", "income", "expense", "pending"].map((tab) => (
+            {launchTabs.map((tab) => (
               <TabsContent key={tab} value={tab} className="m-0">
                 <div className="divide-y divide-white/5">
-                  {launches
+                  {visibleLaunches
                     .filter((item) => {
                       if (tab === "all") return true;
                       if (tab === "income") return item.flow === "INCOME";
                       if (tab === "expense") return item.flow === "EXPENSE";
-                      if (tab === "pending") return item.status === "PENDING";
+                      if (tab === "pending") return item.kind === "PAYMENT" && item.status === "PENDING";
                       return true;
                     })
                     .map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-6 hover:bg-white/[0.02] transition-colors">
-                        <div className="flex items-center space-x-4">
+                      <div key={item.id} className="flex flex-col gap-3 md:gap-0 md:flex-row md:items-center md:justify-between p-3 md:p-6 hover:bg-white/[0.02] transition-colors">
+                        <div className="flex items-start md:items-center gap-3 md:space-x-4">
                           <div className={cn(
-                            "p-3 rounded-xl border",
+                            "p-2.5 md:p-3 rounded-xl border shrink-0",
                             item.flow === "INCOME"
                               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                               : "bg-rose-500/10 border-rose-500/20 text-rose-400"
                           )}>
-                            {item.kind === "PAYMENT" ? getPaymentMethodIcon(item.subtitle === "PIX" ? "PIX" : item.subtitle === "Cartão de Crédito" ? "CREDIT_CARD" : "CASH") :
-                              (item.flow === "INCOME" ? <ArrowUpCircle className="h-5 w-5" /> : <ArrowDownCircle className="h-5 w-5" />)}
+                            {item.kind === "PAYMENT" ? getPaymentMethodIcon(item.subtitle === "PIX" ? "PIX" : item.subtitle === "Cartão de Crédito" ? "CREDIT_CARD" : "CASH") : (item.flow === "INCOME" ? <ArrowUpCircle className="h-5 w-5" /> : <ArrowDownCircle className="h-5 w-5" />)}
                           </div>
 
-                          <div>
-                            <p className="font-bold text-white text-lg">{item.title}</p>
-                            <div className="flex items-center space-x-3 text-xs text-zinc-500 mt-0.5">
+                          <div className="min-w-0">
+                            <p className="font-bold text-white text-lg leading-tight">{item.title}</p>
+                            <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
                               <Badge variant="outline" className="border-white/10 text-zinc-500 uppercase text-[10px] font-bold tracking-widest px-2">
                                 {item.kind === "PAYMENT" ? item.subtitle : (item.flow === "INCOME" ? "Entrada" : "Saída")}
                               </Badge>
-                              <span className="text-zinc-700">|</span>
-                              <span className="uppercase tracking-widest">{item.meta}</span>
-                              <span className="text-zinc-700">|</span>
-                              <span className="uppercase tracking-widest">{formatDate(item.date)}</span>
                             </div>
+                            <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-1 break-words">{item.meta}</p>
+                            <p className="text-[11px] text-zinc-500 uppercase tracking-wide">{formatDate(item.date)}</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between md:justify-end gap-3 md:gap-6">
+                          <div className="flex items-center gap-1.5 md:gap-2">
                             {item.kind === "PAYMENT"
                               ? getPaymentStatusIcon(item.status)
                               : (item.status === "APPROVED" ? <CheckCircle className="h-4 w-4 text-emerald-400" /> : item.status === "REJECTED" ? <XCircle className="h-4 w-4 text-rose-400" /> : <Clock className="h-4 w-4 text-amber-400" />)}
-                            <Badge variant="outline" className="border-white/10 text-zinc-300 uppercase text-[10px] tracking-widest">
+                            <Badge variant="outline" className="border-white/10 text-zinc-300 uppercase text-[9px] md:text-[10px] tracking-widest">
                               {item.kind === "PAYMENT" ? getPaymentStatusLabel(item.status) : getTransactionStatusLabel(item.status)}
                             </Badge>
                           </div>
 
                           <p className={cn(
-                            "font-mono font-bold text-2xl",
+                            "font-mono font-bold text-lg md:text-2xl whitespace-nowrap",
                             item.flow === "INCOME" ? "text-emerald-400" : "text-rose-400"
                           )}>
                             {item.flow === "INCOME" ? "+" : "-"}{formatCurrency(item.amount)}
@@ -506,11 +514,11 @@ export default function FinancePage() {
                       </div>
                     ))}
 
-                  {launches.filter((item) => {
+                  {visibleLaunches.filter((item) => {
                     if (tab === "all") return true;
                     if (tab === "income") return item.flow === "INCOME";
                     if (tab === "expense") return item.flow === "EXPENSE";
-                    if (tab === "pending") return item.status === "PENDING";
+                    if (tab === "pending") return item.kind === "PAYMENT" && item.status === "PENDING";
                     return true;
                   }).length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-zinc-600">

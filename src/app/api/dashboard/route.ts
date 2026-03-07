@@ -25,6 +25,20 @@ export async function GET() {
       prisma.user.count({ where: { isActive: true, playerType: "GOALKEEPER" } }),
     ]);
 
+    const [totalGames, upcomingGamesCount, pastGamesCount, confirmedPaymentsCount, confirmedPaymentsTotal, totalConfirmedAttendances] = await Promise.all([
+      prisma.game.count({ where: { isActive: true } }),
+      prisma.game.count({ where: { isActive: true, date: { gte: now } } }),
+      prisma.game.count({ where: { isActive: true, date: { lt: now } } }),
+      prisma.payment.count({ where: { status: "CONFIRMED" } }),
+      prisma.payment.aggregate({
+        where: { status: "CONFIRMED" },
+        _sum: { amount: true },
+      }),
+      prisma.gameConfirmation.count({
+        where: { status: "CONFIRMED", game: { isActive: true } },
+      }),
+    ]);
+
     // Get upcoming games
     const upcomingGames = await prisma.game.findMany({
       where: {
@@ -108,6 +122,12 @@ export async function GET() {
       monthlyExpenses: monthlyExpensesResult._sum.amount || 0,
       pendingPayments,
       confirmedForNextGame,
+      totalGames,
+      upcomingGamesCount,
+      pastGamesCount,
+      confirmedPaymentsCount,
+      confirmedPaymentsTotal: confirmedPaymentsTotal._sum.amount || 0,
+      totalConfirmedAttendances,
     });
   } catch (error) {
     console.error("Erro ao carregar dashboard:", error);

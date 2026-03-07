@@ -25,7 +25,6 @@ export async function GET(request: Request) {
                 name: true,
                 email: true,
                 playerType: true,
-                document: true,
                 image: true,
                 payments: {
                     where: { referenceMonth: currentMonth },

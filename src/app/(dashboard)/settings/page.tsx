@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,6 @@ import {
 
 import { User, Phone, Mail, Shield, Bell, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { MonthlyChargeDialog } from "@/components/MonthlyChargeDialog";
 
 // Mask Helpers
 const maskCPF = (value: string) => {
@@ -68,8 +68,6 @@ export default function SettingsPage() {
     enableFinalList: true,
     enableDebtors: true
   });
-
-  const [showMonthlyDialog, setShowMonthlyDialog] = useState(false);
 
   const isAdmin = session?.user?.role === "ADMIN";
 
@@ -184,11 +182,11 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-end justify-between border-b border-white/5 pb-6">
+    <div className="space-y-5 md:space-y-8 pb-8 md:pb-10">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-white/5 pb-4 md:pb-6">
         <div>
-          <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight">Configurações</h1>
-          <p className="text-zinc-500 mt-1">Gerencie seu perfil e preferências</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-tight">Configurações</h1>
+          <p className="text-zinc-500 mt-1 text-sm md:text-base">Gerencie seu perfil e preferências</p>
         </div>
       </div>
 
@@ -321,19 +319,21 @@ export default function SettingsPage() {
 
             <Separator className="bg-white/10 my-6" />
 
-            <div className="flex justify-between items-center bg-accent/10 p-4 rounded-lg border border-accent/20">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-accent/10 p-4 rounded-lg border border-accent/20">
               <div>
                 <h3 className="font-bold text-accent uppercase text-sm tracking-wide">Cobrança de Mensalistas</h3>
                 <p className="text-xs text-zinc-400 mt-1">Gerencie os pagamentos mensais do grupo.</p>
               </div>
-              <Button onClick={() => setShowMonthlyDialog(true)} variant="outline" className="border-accent/50 text-accent hover:bg-accent hover:text-black uppercase text-xs font-bold tracking-wider">
-                Gerenciar
-              </Button>
+              <Link href="/monthly" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto border-accent/50 text-accent hover:bg-accent hover:text-black uppercase text-xs font-bold tracking-wider">
+                  Abrir Mensalistas
+                </Button>
+              </Link>
             </div>
 
             <div className="flex justify-end pt-4">
               <Button
-                className="bg-accent text-black hover:bg-white font-bold uppercase tracking-widest px-8 h-12"
+                className="w-full sm:w-auto bg-accent text-black hover:bg-white font-bold uppercase tracking-widest px-8 h-12"
                 onClick={handleSaveSettings}
                 disabled={savingSettings || loadingSettings}
               >
@@ -351,7 +351,7 @@ export default function SettingsPage() {
           <CardDescription className="text-zinc-500">Suas informações básicas</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-8">
             {/* Avatar Section */}
             <div className="flex flex-col items-center space-y-4 min-w-[200px]">
               <div className="relative group">
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleSaveProfile}
                   disabled={savingProfile}
-                  className="bg-accent text-black hover:bg-white font-bold uppercase tracking-widest px-8 h-12"
+                  className="w-full sm:w-auto bg-accent text-black hover:bg-white font-bold uppercase tracking-widest px-8 h-12"
                 >
                   {savingProfile ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "Salvar Alterações"}
                 </Button>
@@ -476,7 +476,6 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-      <MonthlyChargeDialog open={showMonthlyDialog} onOpenChange={setShowMonthlyDialog} />
     </div>
   );
 }
