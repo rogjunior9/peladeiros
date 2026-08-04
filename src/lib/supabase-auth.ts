@@ -3,6 +3,11 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@/lib/prisma";
 import type { PlayerType, UserRole } from "@prisma/client";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+
 export type AppSessionUser = {
   id: string;
   name: string | null;
@@ -38,12 +43,7 @@ function getAllowedEmailDomains(): string[] {
 }
 
 function createSupabaseServerClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
-
-  if (!url || !anonKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
       "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
     );
@@ -51,7 +51,7 @@ function createSupabaseServerClient() {
 
   const cookieStore = cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
@@ -165,6 +165,10 @@ async function buildAppSession(email: string, profile?: { name?: string | null; 
 }
 
 export async function getServerSession(_options?: unknown): Promise<AppSession | null> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
   try {
     const supabase = createSupabaseServerClient();
     const {

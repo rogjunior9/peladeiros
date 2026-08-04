@@ -18,6 +18,8 @@ Sistema para gestão de peladas com autenticação Google, controle de jogos, co
 ## Configuração
 Preencha um único arquivo `.env` com:
 - `DATABASE_URL` do Supabase (preferencialmente a URL do `Session pooler` em ambientes como EasyPanel/VPS)
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` ou `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
@@ -27,6 +29,8 @@ Preencha um único arquivo `.env` com:
 - `N8N_API_KEY`
 - `N8N_WORKFLOW_ID`
 - `CRON_SECRET`
+
+Nunca use `SUPABASE_SERVICE_ROLE_KEY` em variável `NEXT_PUBLIC_*`, porque ela fica exposta ao navegador.
 
 ## Rodar local
 ```bash

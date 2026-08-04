@@ -9,7 +9,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import {
+  getSupabaseBrowserClient,
+  hasSupabaseBrowserConfig,
+} from "@/lib/supabase-client";
 import type { AppSession } from "@/lib/supabase-auth";
 
 type SessionStatus = "loading" | "authenticated" | "unauthenticated";
@@ -87,6 +90,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refreshSession();
+
+    if (!hasSupabaseBrowserConfig()) {
+      return;
+    }
 
     const supabase = getSupabaseBrowserClient();
     const {

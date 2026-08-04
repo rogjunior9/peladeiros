@@ -20,6 +20,8 @@
 
 ```
 DATABASE_URL=postgresql://postgres.<project-ref>:SUA_SENHA@aws-0-REGIAO.pooler.supabase.com:5432/postgres?sslmode=require
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXTAUTH_URL=https://SEU_DOMINIO
 NEXTAUTH_SECRET=gere-com-openssl-rand-base64-32
 GOOGLE_CLIENT_ID=...
@@ -31,12 +33,13 @@ N8N_WORKFLOW_ID=...
 CRON_SECRET=gere-com-openssl-rand-base64-32
 ```
 
-Opcional se usar APIs do Supabase fora do Prisma:
+Opcional se usar APIs administrativas do Supabase fora do Prisma:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
+
+Não use `SUPABASE_SERVICE_ROLE_KEY` em variável `NEXT_PUBLIC_*`, porque ela fica exposta ao navegador.
 
 ## 4. Primeiro start
 1. Deploy
